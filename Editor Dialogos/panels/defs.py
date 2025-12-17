@@ -2,6 +2,5 @@
 characters = {}
 
 class character:
-    def __init__(self, name="Nombre default", color="#ffffff"):
-        self.name = name
+    def __init__(self, color="#ffffff"):
         self.color = color

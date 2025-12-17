@@ -6,9 +6,11 @@ Esta pensado para que funcione con nuestro sistema de dialogos actualizado para 
 ## Instalación
 
 ```bash
+pip install tkinter
 pip install customtkinter
-pip install CTkMenuBarPlus
 pip install tknodesystem
+pip install CTkMenuBarPlus
+pip install CTkColorPicker
 ```
 
 ## Ejecución

@@ -55,18 +55,18 @@ class App(ctk.CTk):
         self._set_ui()
 
         # Pestanyas
-        tabview = ctk.CTkTabview(master=self)
-        tabview.pack(fill='both', expand=True)
+        self.tabview = ctk.CTkTabview(master=self, command=self._on_tab_changed)
+        self.tabview.pack(fill='both', expand=True)
         # Editor de nodos
-        self.nodesTab = tabview.add("Editor de nodos")
+        self.nodesTab = self.tabview.add("Editor de nodos")
         nodeEditorFrame = NodeEditorFrame(master=self.nodesTab)
         nodeEditorFrame.pack(fill='both', expand=True)
         # Editor de personajes
-        self.charactersTab = tabview.add("Editor de personajes")
+        self.charactersTab = self.tabview.add("Editor de personajes")
         characterEditorFrame = CharacterEditorFrame(master=self.charactersTab)
         characterEditorFrame.pack(fill='both', expand=True)
         # Editor de parametros extra (Ej: Botones de UI, imagenes con texto...)
-        self.parametersTab = tabview.add("Parametros de juego")
+        self.parametersTab = self.tabview.add("Parametros de juego")
 
         self.mainloop()
 
@@ -95,6 +95,13 @@ class App(ctk.CTk):
         see_dropdown = CustomDropdownMenu(widget=see_btn)
         see_dropdown.add_option("Panel Izquierdo", checkable=True, command=lambda: print("Ver Panel Izquierdo"))
         see_dropdown.add_option("Panel Derecho", checkable=True, command=lambda: print("Ver Panel Derecho"))
+    
+    def _on_tab_changed(self):
+        '''Al cambiar de pestaña, quitamos el foco del teclado de cualquier sitio'''
+        # Esto obliga a que el canvas pierda el control del teclado
+        # hasta que el usuario vuelva a hacer clic físicamente en él.
+        self.focus_set() 
+        print(f"Cambiado a pestaña: {self.tabview.get()}")
 
         
 

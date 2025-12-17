@@ -16,23 +16,6 @@ class NodeEditable(Node):
         # tknodesystem dibuja basandose en el centro, no en la esquina superior izquierda.
         center = (x, y) 
 
-        # Socket de Entrada (izquierdo)
-        self.input_ = NodeSocket(
-            canvas, 
-            center=(x - width/2, y), # Posicion relativa al centro
-            radius=8, 
-            fg_color="#ffcc00",
-            socket_num=1
-        )
-        # Socket de Salida (Derecha)
-        self.output_ = NodeSocket(
-            canvas, 
-            center=(x + width/2, y), 
-            radius=8, 
-            fg_color="#ffcc00",
-            socket_num=2
-        )
-
         super().__init__(
             canvas=canvas,
             width=width,
@@ -44,9 +27,31 @@ class NodeEditable(Node):
             border_color="#555555",
             text_color="white"
         )
+        # Definimos las listas de sockets que espera el sistema
+        self.inputs = []
+        self.outputs = []
+        # Socket de Entrada (izquierdo)
+        self.input_1 = NodeSocket(
+            canvas, 
+            center=(x - width/2, y), 
+            radius=10, 
+            fg_color="#ffcc00",
+            socket_num=1
+        )
+        self.inputs.append(self.input_1)
+
+        # Socket de Salida (Derecha)
+        self.output_ = NodeSocket(
+            canvas, 
+            center=(x + width/2, y), # Posicion relativa al centro
+            radius=10, 
+            fg_color="#ffcc00",
+            socket_num=2
+        )
+        self.outputs.append(self.output_)
 
         # Lista interna para que se muevan con el nodo
-        self.allIDs = self.allIDs + [self.input_.ID, self.output_.ID]
+        self.allIDs.extend([self.input_1.ID, self.output_.ID])
 
         # --- CONTENIDO INTERNO ---
         self.container = ctk.CTkFrame(self.canvas, fg_color="transparent")

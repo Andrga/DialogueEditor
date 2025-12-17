@@ -1,3 +1,4 @@
+import tkinter as ttk
 import customtkinter as ctk
 from customtkinter import CTkFrame, CTkButton, CTkLabel
 from tknodesystem import NodeCanvas, NodeValue, NodeOperation, NodeCompile, NodeMenu
@@ -54,10 +55,30 @@ class NodeEditorFrame(CTkFrame):
         #NodeCompile(self.canvas, x=450, y=50)
 
         # Menu contextual para nodos a crear
-        menu = NodeMenu(self.canvas)
-        menu.add_node(label="NodeDialogue", command=lambda: NodeDialogue(self.canvas))
-        menu.add_node(label="NodeOperation", command=lambda: NodeOperation(self.canvas))
-        menu.add_node(label="NodeCompile", command=lambda: NodeCompile(self.canvas))
+        self.node_menu = NodeMenu(self.canvas)
+        self.node_menu.add_node(label="NodeDialogue", command=lambda: NodeDialogue(self.canvas))
+        self.node_menu.add_node(label="NodeOperation", command=lambda: NodeOperation(self.canvas))
+        self.node_menu.add_node(label="NodeCompile", command=lambda: NodeCompile(self.canvas))
+        # Remapeo al click derecho
+        self.canvas.unbind("<Button-3>") 
+        self.canvas.bind("<Button-3>", self._safe_show_menu)
+        self.canvas.bind_all("<space>", self._safe_show_menu)
+    
+    def _safe_show_menu(self, event):
+        '''
+        Solo muestra el menu si se cumplen las condiciones de seguridad
+        '''
+        # Verificacion de si el foco esta en un widget de escritura (Entry o Text)
+        current_focus = self.focus_get()
+        # Si estamos escribiendo, no hacemos nada
+        if isinstance(current_focus, (ctk.CTkEntry, ctk.CTkTextbox, ttk.Entry, ttk.Text)):
+            return 
+
+        # Si el frame no es visible, no hacemos nada
+        if not self.winfo_viewable():
+            return
+        
+        self.node_menu.popup(event)
 
     def _create_left_panel(self):
         '''
