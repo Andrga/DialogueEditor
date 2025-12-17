@@ -5,6 +5,15 @@ import customtkinter as ctk
 from panels.nodeEditor import NodeEditorFrame
 from panels.charactersEditor import CharacterEditorFrame
 from CTkMenuBarPlus import CTkMenuBar, CustomDropdownMenu
+import ctypes
+import os
+
+# Este codigo le dice a Windows que trate este script como una aplicacion independiente
+try:
+    myappid = 'dialogue_editor.alcanciles_con_miopia' # Da igual lo que ponga, es un id propio
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except Exception as e:
+    print(f"No se pudo configurar el ID de la barra de tareas: {e}")
 
 class App(ctk.CTk):
     def __init__(self):
@@ -16,6 +25,20 @@ class App(ctk.CTk):
         # Creacion de la ventana
         self.geometry("1080x720")
         self.title("Editor de Dialogos")
+
+        # Ruta del icono
+        icon_path = os.path.join(os.path.dirname(__file__), "images", "icon.ico")
+        if os.path.exists(icon_path):
+            # Icono de la ventana
+            self.iconbitmap(icon_path)
+            # Icono para la barra de tareas y el selector Alt+Tab
+            # A veces iconbitmap no es suficiente para CustomTkinter, 
+            img = PhotoImage(file=icon_path.replace(".ico", ".png")) # Si tienes el PNG mejor
+            # Reforzamos con iconphoto:
+            self.iconphoto(False, img)
+        else:
+            print(f"No se encontró el icono en {icon_path}")
+
         self.active_nodes = []
 
     def notify_character_change(self):

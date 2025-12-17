@@ -117,8 +117,11 @@ class NodeEditable(Node):
         # Si el personaje existe actualiza visualmente
         if char_obj:
             # Actualizando el personaje
-            self.character = characterSelected
+            self.character = char_obj
             self.textbox.configure(text_color=self.character.color)
+        else:
+            # Caso por defecto si no se encuentra
+            self.textbox.configure(text_color="white")
 
     # Sobreescribimos move para mover también la ventana del textbox
     def move(self, x, y):
