@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from customtkinter import CTkFrame, CTkButton, CTkLabel
 from tknodesystem import NodeCanvas, NodeValue, NodeOperation, NodeCompile, NodeMenu
-
+from panels.custom_node_types import NodeDialogue
 
 
 class NodeEditorFrame(CTkFrame):
@@ -49,13 +49,13 @@ class NodeEditorFrame(CTkFrame):
         self.canvas.pack(fill="both", expand=True)
         
         # Nodos default ?
-        NodeValue(self.canvas, x=50, y=50)
-        NodeOperation(self.canvas, x=250, y=50)
-        NodeCompile(self.canvas, x=450, y=50)
+        #NodeValue(self.canvas, x=50, y=50)
+        #NodeOperation(self.canvas, x=250, y=50)
+        #NodeCompile(self.canvas, x=450, y=50)
 
         # Menu contextual para nodos a crear
         menu = NodeMenu(self.canvas)
-        menu.add_node(label="NodeValue", command=lambda: NodeValue(self.canvas))
+        menu.add_node(label="NodeDialogue", command=lambda: NodeDialogue(self.canvas))
         menu.add_node(label="NodeOperation", command=lambda: NodeOperation(self.canvas))
         menu.add_node(label="NodeCompile", command=lambda: NodeCompile(self.canvas))
 

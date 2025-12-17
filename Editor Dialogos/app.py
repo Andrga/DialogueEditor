@@ -16,6 +16,17 @@ class App(ctk.CTk):
         # Creacion de la ventana
         self.geometry("1080x720")
         self.title("Editor de Dialogos")
+        self.active_nodes = []
+
+    def notify_character_change(self):
+        '''
+        Avisa a todos los nodos registrados que actualicen su lista de personajes
+        '''
+        print("Notificando que se ha creado un personaje")
+        for node in self.active_nodes:
+            # Verificamos que el nodo aun exista y tenga el metodo
+            if hasattr(node, 'refresh_character_options'):
+                node.refresh_character_options()
 
     def run(self):
         self._set_ui()
