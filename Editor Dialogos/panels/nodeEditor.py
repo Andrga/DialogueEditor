@@ -2,7 +2,7 @@ import tkinter as ttk
 import customtkinter as ctk
 from customtkinter import CTkFrame, CTkButton, CTkLabel
 from tknodesystem import NodeCanvas, NodeValue, NodeOperation, NodeCompile, NodeMenu
-from panels.custom_node_types import NodeDialogue
+from panels.custom_node_types import NodeDialogue, NodeDecision, NodeEvent
 
 
 class NodeEditorFrame(CTkFrame):
@@ -12,31 +12,31 @@ class NodeEditorFrame(CTkFrame):
         # Columna 1: Canvas Central (Weight 1 hace que se expanda para ocupar espacio libre)
         # Columna 2: Panel Derecho
         self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(1, weight=1) # Fila 1 es el contenido principal
+        self.grid_rowconfigure(0, weight=1) # Fila 0 es el contenido principal
 
         # --- Fila 0: Barra de Herramientas (Toolbar) ---
-        self.toolbar = CTkFrame(self, height=40, corner_radius=0)
-        self.toolbar.grid(row=0, column=0, columnspan=3, sticky="ew")
+        #self.toolbar = CTkFrame(self, height=40, corner_radius=0)
+        #self.toolbar.grid(row=0, column=0, columnspan=3, sticky="ew")
 
         # Botones para alternar paneles
-        self.btn_toggle_left = CTkButton(self.toolbar, text="Panel Izquierdo", width=100, command=self.toggle_left_panel)
-        self.btn_toggle_left.pack(side="left", padx=10, pady=5)
+        #self.btn_toggle_left = CTkButton(self.toolbar, text="Panel Izquierdo", width=100, command=self.toggle_left_panel)
+        #self.btn_toggle_left.pack(side="left", padx=10, pady=5)
 
-        self.btn_toggle_right = CTkButton(self.toolbar, text="Panel Derecho", width=100, command=self.toggle_right_panel)
-        self.btn_toggle_right.pack(side="right", padx=10, pady=5)
+        #self.btn_toggle_right = CTkButton(self.toolbar, text="Panel Derecho", width=100, command=self.toggle_right_panel)
+        #self.btn_toggle_right.pack(side="right", padx=10, pady=5)
 
-        self._create_left_panel()
-        self._create_right_panel()
+        #self._create_left_panel()
+        #self._create_right_panel()
         self._create_canvas()
 
         # Mostramos todo al principio
-        self.left_panel.grid(row=1, column=0, sticky="nsew")
-        self.canvas_container.grid(row=1, column=1, sticky="nsew")
-        self.right_panel.grid(row=1, column=2, sticky="nsew")
+        #self.left_panel.grid(row=1, column=0, sticky="nsew")
+        self.canvas_container.grid(row=0, column=1, sticky="nsew")
+        #self.right_panel.grid(row=1, column=2, sticky="nsew")
 
         # Variables de estado
-        self.left_visible = True
-        self.right_visible = True
+        #self.left_visible = True
+        #self.right_visible = True
 
     def _create_canvas(self):
         '''
@@ -49,6 +49,18 @@ class NodeEditorFrame(CTkFrame):
         self.canvas = NodeCanvas(self.canvas_container, bg="black")
         self.canvas.pack(fill="both", expand=True)
         
+        # ===== INICIALIZAR ATRIBUTOS NECESARIOS PARA LOS SOCKETS =====
+        self.canvas.socket_num = 0
+        self.canvas.dash = (100, 100)  # Patron del cable?
+        self.canvas.wire_width = 10  # Grosor del cable
+        self.canvas.wire_color = "#009c53"  # Color del cable
+        self.canvas.connect_wire = True  # Permitir conexion de cables
+        self.canvas.line_ids = set()  # Almacenar referencias a cables
+        
+        # Asegurarse de que node_list existe
+        if not hasattr(self.canvas, 'node_list'):
+            self.canvas.node_list = set()
+        
         # Nodos default ?
         #NodeValue(self.canvas, x=50, y=50)
         #NodeOperation(self.canvas, x=250, y=50)
@@ -56,9 +68,11 @@ class NodeEditorFrame(CTkFrame):
 
         # Menu contextual para nodos a crear
         self.node_menu = NodeMenu(self.canvas)
-        self.node_menu.add_node(label="NodeDialogue", command=lambda: NodeDialogue(self.canvas))
-        self.node_menu.add_node(label="NodeOperation", command=lambda: NodeOperation(self.canvas))
-        self.node_menu.add_node(label="NodeCompile", command=lambda: NodeCompile(self.canvas))
+        self.node_menu.add_node(label="Dialogo", command=lambda: NodeDialogue(self.canvas))
+        self.node_menu.add_node(label="Decision", command=lambda: NodeDecision(self.canvas))
+        self.node_menu.add_node(label="Evento", command=lambda: NodeEvent(self.canvas))
+        self.node_menu.add_node(label="Valor", command=lambda: NodeValue(self.canvas))
+        self.node_menu.add_node(label="Compile", command=lambda: NodeCompile(self.canvas))
         # Remapeo al click derecho
         self.canvas.unbind("<Button-3>") 
         self.canvas.bind("<Button-3>", self._safe_show_menu)

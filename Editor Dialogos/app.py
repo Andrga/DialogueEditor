@@ -97,15 +97,13 @@ class App(ctk.CTk):
         see_dropdown.add_option("Panel Derecho", checkable=True, command=lambda: print("Ver Panel Derecho"))
     
     def _on_tab_changed(self):
-        '''Al cambiar de pestaña, quitamos el foco del teclado de cualquier sitio'''
+        '''
+        Al cambiar de pestanya, quitamos el foco del teclado de cualquier sitio
+        '''
         # Esto obliga a que el canvas pierda el control del teclado
-        # hasta que el usuario vuelva a hacer clic físicamente en él.
+        # hasta que el usuario vuelva a hacer clic fisicamente en el.
         self.focus_set() 
         print(f"Cambiado a pestaña: {self.tabview.get()}")
-
-        
-
-
 
 
 if __name__ == "__main__":
