@@ -1,8 +1,8 @@
 import tkinter as ttk
 import customtkinter as ctk
 from customtkinter import CTkFrame, CTkButton, CTkLabel
-from tknodesystem import NodeCanvas, NodeValue, NodeOperation, NodeCompile, NodeMenu
-from panels.custom_node_types import NodeDialogue, NodeDecision, NodeEvent
+from tknodesystem import NodeCanvas, NodeMenu
+from panels.custom_node_types import NodeDialogue, NodeDecision, NodeEvent, NodeEnd, NodeStart
 
 
 class NodeEditorFrame(CTkFrame):
@@ -62,17 +62,17 @@ class NodeEditorFrame(CTkFrame):
             self.canvas.node_list = set()
         
         # Nodos default ?
-        #NodeValue(self.canvas, x=50, y=50)
+        NodeStart(self.canvas, x=50, y=50)
         #NodeOperation(self.canvas, x=250, y=50)
-        #NodeCompile(self.canvas, x=450, y=50)
+        NodeEnd(self.canvas, x=450, y=50)
 
         # Menu contextual para nodos a crear
         self.node_menu = NodeMenu(self.canvas)
         self.node_menu.add_node(label="Dialogo", command=lambda: NodeDialogue(self.canvas))
         self.node_menu.add_node(label="Decision", command=lambda: NodeDecision(self.canvas))
         self.node_menu.add_node(label="Evento", command=lambda: NodeEvent(self.canvas))
-        self.node_menu.add_node(label="Valor", command=lambda: NodeValue(self.canvas))
-        self.node_menu.add_node(label="Compile", command=lambda: NodeCompile(self.canvas))
+        self.node_menu.add_node(label="Inicio", command=lambda: NodeStart(self.canvas))
+        self.node_menu.add_node(label="Final", command=lambda: NodeEnd(self.canvas))
         # Remapeo al click derecho
         self.canvas.unbind("<Button-3>") 
         self.canvas.bind("<Button-3>", self._safe_show_menu)

@@ -4,49 +4,38 @@ from tknodesystem.node import Node
 from tknodesystem.node_socket import NodeSocket
 from panels.defs import characters
 
-class NodeEditable(Node):
+
+class NodeStart(Node):
     '''
-    Nodo base editable.
-    Incluye:
-    - 1 input
+    Nodo de inicio de conversacion.
+    - Sin inputs
     - 1 output
-    - Selector de personaje
-    - Textbox de contenido
     '''
 
-    WIDTH = 240
-    HEIGHT = 200
-    def __init__(self, canvas, x=200, y=200, text="NPC Dialogo"):
-        # tknodesystem dibuja basandose en el centro, no en la esquina superior izquierda.
-        center = (x, y) 
+    WIDTH = 160
+    HEIGHT = 80
+    type = "START"
+
+    def __init__(self, canvas, x=200, y=200):
+        center = (x, y)
         super().__init__(
             canvas=canvas,
             width=self.WIDTH,
             height=self.HEIGHT,
             center=center,
-            text=text,
+            text="START",
             corner_radius=10,
-            fg_color="#3b3b3b",
-            border_color="#292929",
+            fg_color="#2d5a2d",
+            border_color="#1a3a1a",
             text_color="white"
         )
 
-        # --- SOCKETS ---
-        self.inputs = []
-        self.outputs = []
-
         self._create_sockets(x, y)
         
-        # --- CONTENIDO INTERNO ---
-        self._create_container(x, y)
-
-        # Movimiento conjunto
         self.bind_all_to_movement()
         self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
-        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
-                     lambda e: self.connect_input('input1'))
-        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
-        self.socket_nums = len(self.outputs)
+        self.socket_nums = self.output_.socket_num
+        
         # Escala inicial
         for j in range(self.canvas.gain_in):
             for i in self.allIDs:
@@ -54,15 +43,136 @@ class NodeEditable(Node):
         for j in range(abs(self.canvas.gain_out)):
             for i in self.allIDs:
                 self.canvas.scale(i, 0, 0, 0.9, 0.9)
-        # Mueve a la posicion inicial
+        
         if x or y:
-            super().move(x,y)
+            super().move(x, y)
             
-        # Registro en la app (observer)
         self._register_in_app()
         self.canvas.obj_list.add(self)
+    
+    # =====================================================
+    # SOCKETS
+    # =====================================================
+
+    def _create_sockets(self, x, y):
+        # Output (derecha)
+        self.output_ = NodeSocket(
+            self.canvas,
+            center=(x + self.WIDTH / 2, y),
+            radius=10,
+            fg_color="#00f56e",
+            border_color="#009945",
+            socket_num=None
+        )
+        self.allIDs.append(self.output_.ID)
+
+    def connect_output(self, event):        
+        self.canvas.clickcount += 1
+        self.canvas.outputcell = self
+
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+ 
+        self.output_.connect_wire()
+
+    # =====================================================
+    # UTILS
+    # =====================================================
+    def get_data(self):
+        return {"type": type}
+
+    def _register_in_app(self):
+        try:
+            app = self.canvas.master.master.master.master.master
+            if hasattr(app, "active_nodes"):
+                app.active_nodes.append(self)
+        except Exception:
+            pass
+
+    def destroy(self):
+        """Destruir el nodo correctamente"""
+        if self.ID not in self.canvas.find_all():
+            return
+        
+        # Eliminar todos los IDs del canvas
+        for i in self.allIDs:
+            try:
+                self.canvas.delete(i)
+            except:
+                pass
+        
+        # Remover de las listas del canvas
+        try:
+            self.canvas.node_list.remove(self)
+        except (KeyError, ValueError):
+            pass
+        
+        try:
+            self.canvas.obj_list.remove(self)
+        except (KeyError, ValueError, AttributeError):
+            pass
+        
+        # Actualizar lineas
+        for i in list(self.canvas.line_ids):
+            try:
+                i.update()
+            except:
+                pass
 
 
+class NodeEnd(Node):
+    '''
+    Nodo de fin de conversacion.
+    - 1 input
+    - Sin outputs
+    '''
+    WIDTH = 160
+    HEIGHT = 80
+    type = "END"
+
+    def __init__(self, canvas, x=200, y=200):
+        center = (x, y)
+        super().__init__(
+            canvas=canvas,
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            center=center,
+            text="END",
+            corner_radius=10,
+            fg_color="#5a2d2d",
+            border_color="#3a1a1a",
+            text_color="white"
+        )
+
+        self._create_sockets(x, y)
+        
+        self.bind_all_to_movement()
+        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
+                     lambda e: self.connect_input('input1'))
+        self.socket_nums = 0
+        
+        # Escala inicial
+        for j in range(self.canvas.gain_in):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 1.1, 1.1)
+        for j in range(abs(self.canvas.gain_out)):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 0.9, 0.9)
+        
+        if x or y:
+            super().move(x, y)
+            
+        self._register_in_app()
+        self.canvas.obj_list.add(self)
+    
+    def update(self):
+        '''
+        Copiado parcialmente de node_types.NodeCompile
+        '''            
+        self.previous_value = self.output_.value
+
+        self.canvas.after(50, self.update)
+    
     # =====================================================
     # SOCKETS
     # =====================================================
@@ -73,50 +183,29 @@ class NodeEditable(Node):
             self.canvas,
             center=(x - self.WIDTH / 2, y),
             radius=10,
-            fg_color="#00f56e",
-            socket_num=1
+            fg_color="#f50000",
+            socket_num=None
         )
-        self.inputs.append(self.input_1)
-
-        # Output (derecha)
         self.output_ = NodeSocket(
             self.canvas,
-            center=(x + self.WIDTH / 2, y),
+            center=(x - self.WIDTH / 2, y),
             radius=10,
-            fg_color="#00f56e",
-            socket_num=2
+            fg_color="#f54500",
+            socket_num=None
         )
-        self.outputs.append(self.output_)
+        self.allIDs.append(self.input_1.ID)
+        self.output_.hide()
 
-        self.allIDs.extend([
-            self.input_1.ID,
-            self.output_.ID
-        ])
-    
-    # =====================================================
-    # UI
-    # =====================================================
+    def connect_input(self, input_id):
+        if self.canvas.outputcell is None:
+            return
+        self.canvas.clickcount += 1
+        self.canvas.inputcell = self
+        self.canvas.IDc = input_id
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+            self.canvas.conectcells()
 
-    def _create_container(self, x, y):
-        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
-
-        self.window_id = self.canvas.create_window(
-            x,
-            y,
-            window=self.container,
-            width=self.WIDTH - 15,
-            height=self.HEIGHT - 30
-        )
-
-        self.allIDs.append(self.window_id)
-
-    # =====================================================
-    # CONNECTIONS
-    # =====================================================
-
-    def connect_output(self, event):
-        """ connect output socket """
-        
         self.canvas.clickcount += 1
         self.canvas.outputcell = self
 
@@ -124,56 +213,35 @@ class NodeEditable(Node):
             self.canvas.clickcount = 0
  
         self.output_.connect_wire()
-    
-
-    def connect_input(self, input_id):
-        if self.canvas.outputcell is None:
-            return
-
-        self.canvas.clickcount += 1
-        self.canvas.inputcell = self
-        self.canvas.IDc = input_id
-
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-            self.canvas.conectcells()
-
-    def update(self):
-        self.output_.value = True
-    
-    # =====================================================
-    # EVENTOS
-    # =====================================================
-
-    def on_character_selected(self, name):
-        char = characters.get(name)
-
-        if char:
-            self.character = char
-            self.textbox.configure(text_color=char.color)
-        else:
-            self.character = None
-            self.textbox.configure(text_color="white")
-
-    # =====================================================
-    # DATOS
-    # =====================================================
-
-    def get_data(self):
-        return {
-            "character": self.character.name if self.character else None,
-            "text": self.textbox.get("0.0", "end").strip()
-        }
-    
 
     # =====================================================
     # UTILS
     # =====================================================
+    def get_data(self):
+        return {"type": type}
 
-    def refresh_character_options(self):
-        self.character_selector.configure(
-            values=list(characters.keys())
-        )
+    def destroy(self):
+        '''
+        Destruir el nodo correctamente
+        '''
+        if self.ID not in self.canvas.find_all():
+            return
+        
+        for i in self.allIDs:
+            try:
+                self.canvas.delete(i)
+            except:
+                pass
+        
+        try:
+            self.canvas.node_list.remove(self)
+        except (KeyError, ValueError):
+            pass
+        
+        try:
+            self.canvas.obj_list.remove(self)
+        except (KeyError, ValueError, AttributeError):
+            pass
 
     def _register_in_app(self):
         try:
@@ -183,239 +251,691 @@ class NodeEditable(Node):
         except Exception:
             pass
 
-class NodeStart(NodeEditable):
-    TYPE = "start"
-    def __init__(self, canvas, x=200, y=200, text="NPC Dialogo"):
-        super().__init__(canvas, x, y, text)
 
-class NodeDialogue(NodeEditable):
-    TYPE = "dialogue"
+class NodeDialogue(Node):
+    '''
+    Nodo de dialogo.
+    - 1 input
+    - 1 output
+    - Selector de personaje
+    - Textbox de dialogo
+    '''
+
+    WIDTH = 280
+    HEIGHT = 240
+    type = "DIALOGO"
 
     def __init__(self, canvas, x=200, y=200):
-        super().__init__(canvas, x, y, text="Diálogo")
-        
-        # --- CONTENIDO INTERNO ---
-        self._create_character_selector()
-        self._create_textbox()
+        center = (x, y)
+        super().__init__(
+            canvas=canvas,
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            center=center,
+            text="Diálogo",
+            corner_radius=10,
+            fg_color="#3b3b3b",
+            border_color="#292929",
+            text_color="white"
+        )
 
-    def get_next_node(self):
-        if not hasattr(self.canvas, "connections"):
-            return None
-
-        for conn in self.canvas.connections:
-            if conn.output_socket == self.output_:
-                return conn.input_socket.node
-        return None
-
-    def get_data(self):
-        data = super().get_data()
-        data.update({
-            "type": self.TYPE
-        })
-        return data
-    
-    def destroy(self):
-        super().destroy()
-        # Destruir widgets embebidos
-        try:
-            if hasattr(self, "textbox"):
-                self.textbox.destroy()
-            if hasattr(self, "character_selector"):
-                self.character_selector.destroy()
-            if hasattr(self, "container"):
-                self.container.destroy()
-        except Exception:
-            print(f"ERROR: {Exception}")
-            pass
-    
-    # =====================================================
-    # UI
-    # =====================================================
-    def _create_character_selector(self):
+        self.inputs = []
+        self.outputs = []
         self.character = None
+
+        self._create_sockets(x, y)
+        self._create_container(x, y)
+
+        self.bind_all_to_movement()
+        self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
+        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
+                     lambda e: self.connect_input('input1'))
+        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
+        self.socket_nums = len(self.outputs)
+        
+        # Escala inicial
+        for j in range(self.canvas.gain_in):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 1.1, 1.1)
+        for j in range(abs(self.canvas.gain_out)):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 0.9, 0.9)
+        
+        if x or y:
+            super().move(x, y)
+            
+        self._register_in_app()
+        self.canvas.obj_list.add(self)
+
+    # =====================================================
+    # SOCKETS
+    # =====================================================
+
+    def _create_sockets(self, x, y):
+        self.input_1 = NodeSocket(
+            self.canvas,
+            center=(x - self.WIDTH / 2, y),
+            radius=10,
+            fg_color="#00f56e",
+            socket_num=None
+        )
+        self.inputs.append(self.input_1)
+
+        self.output_ = NodeSocket(
+            self.canvas,
+            center=(x + self.WIDTH / 2, y),
+            radius=10,
+            fg_color="#00f56e",
+            socket_num=None
+        )
+        self.outputs.append(self.output_)
+
+        self.allIDs.extend([self.input_1.ID, self.output_.ID])
+
+    def connect_output(self, event):
+        self.canvas.clickcount += 1
+        self.canvas.outputcell = self
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+        self.output_.connect_wire()
+
+    def connect_input(self, input_id):
+        if self.canvas.outputcell is None:
+            return
+        self.canvas.clickcount += 1
+        self.canvas.inputcell = self
+        self.canvas.IDc = input_id
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+            self.canvas.conectcells()
+
+    # =====================================================
+    # CONTENIDO
+    # =====================================================
+
+    def _create_container(self, x, y):
+        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
+
+        # Label y Selector de personaje
+        lbl_character = ctk.CTkLabel(
+            self.container,
+            text="Personaje:",
+            text_color="white",
+            font=("Arial", 10)
+        )
+        lbl_character.pack(pady=(5, 2))
 
         self.character_selector = ctk.CTkComboBox(
             self.container,
             values=list(characters.keys()),
             command=self.on_character_selected,
-            corner_radius=5
+            width=250,
+            height=25,
+            font=("Arial", 9)
         )
-        self.character_selector.pack(fill="x", pady=(0, 5))
-        self.character_selector.set("Seleccionar")
+        self.character_selector.pack(pady=(0, 5))
 
-    def _create_textbox(self):
+        # Label y Textbox para dialogo
+        lbl_text = ctk.CTkLabel(
+            self.container,
+            text="Diálogo:",
+            text_color="white",
+            font=("Arial", 10)
+        )
+        lbl_text.pack(pady=(0, 2))
+
         self.textbox = ctk.CTkTextbox(
             self.container,
-            fg_color="#222222",
+            width=250,
+            height=120,
+            font=("Arial", 10),
             text_color="white",
-            corner_radius=5
+            fg_color="#2b2b2b",
+            border_color="#1a1a1a"
         )
-        self.textbox.pack(fill="both", expand=True)
-        self.textbox.insert("0.0", "Escribe aquí...")
+        self.textbox.pack(pady=(0, 5))
 
-class NodeDecision(NodeEditable):
-    OPTION_HEIGHT = 30
-    def __init__(self, canvas, x=200, y=200):
-        self.options = []
-        super().__init__(canvas, x, y, text="Decisión")
-
-
-        # Botón añadir opción
-        self.add_button = ctk.CTkButton(
-            self.container,
-            text="+ Añadir opción",
-            command=self.add_option,
-            height=24
-        )
-        self.add_button.pack(fill="x", pady=(5, 0))
-
-        # Crear opciones iniciales
-        self.add_option()
-        self.add_option()
-
-    # --------------------------------
-    # OPCIONES
-    # --------------------------------  
-
-    def add_option(self):
-        index = len(self.options)
-
-        # Campo de texto
-        entry = ctk.CTkEntry(
-            self.container,
-            placeholder_text=f"Opción {index + 1}"
-        )
-        entry.pack(fill="x", pady=2)
-
-        # Socket de salida
-        socket = NodeSocket(
-            self.canvas,
-            center=self._get_output_position(index),
-            radius=10,
-            fg_color="#00ccff",
-            socket_num=10 + index
+        self.window_id = self.canvas.create_window(
+            x, y,
+            window=self.container,
+            width=self.WIDTH - 15,
+            height=self.HEIGHT - 30
         )
 
-        self.outputs.append(socket)
-        self.allIDs.append(socket.ID)
+        self.allIDs.append(self.window_id)
+    
+    def on_character_selected(self, name):
+        char = characters.get(name)
+        if char:
+            self.character = char
+            self.textbox.configure(text_color=char.color)
+        else:
+            self.character = None
+            self.textbox.configure(text_color="white")
+    
+    # =====================================================
+    # UTILS
+    # =====================================================
 
-        self.options.append({
-            "entry": entry,
-            "socket": socket,
-            "index": index
-        })
-
-        self._resize_node()
-
-
-    def _get_output_position(self, index):
-        # Borde derecho
-        x = self.center[0] + self.WIDTH / 2
-        # Calculamos desde el borde superior actual
-        y_top = self.center[1] - (self.height / 2)
-        # Ajustamos el offset (85px suele ser el espacio del botón + padding)
-        y = y_top + 85 + (index * self.OPTION_HEIGHT)
-        return (x, y)
-
-    def update_sockets(self):
-        # Usar self.center como referencia absoluta
-        x, y = self.center
-        
-        # Input principal (izquierda)
-        if hasattr(self, "input_1"):
-            r = self.input_1.radius
-            # El borde izquierdo es x - ancho/2
-            self.canvas.coords(self.input_1.ID, 
-                               x - self.WIDTH/2 - r, y - r, 
-                               x - self.WIDTH/2 + r, y + r)
-            self.input_1.update()
-
-        # Sockets de opciones (derecha)
-        if hasattr(self, "options"):
-            for opt in self.options:
-                pos = self._get_output_position(opt["index"])
-                r = opt["socket"].radius
-                self.canvas.coords(opt["socket"].ID, 
-                                   pos[0]-r, pos[1]-r, 
-                                   pos[0]+r, pos[1]+r)
-                opt["socket"].update()
-
-        # Actualizar cables
-        for i in self.canvas.line_ids:
-            i.update()
-
-
-    def _resize_node(self):
-        # Nueva altura basada en la cantidad de opciones
-        self.height = self.HEIGHT + (len(self.options) * self.OPTION_HEIGHT)
-        
-        # REcalculamos UNO A UNO los puntos del poligono
-        x, y = self.center
-        x1, y1 = x - self.WIDTH / 2, y - self.height / 2
-        x2, y2 = x + self.WIDTH / 2, y + self.height / 2
-        r = self.corner_radius
-        
-        new_points = [
-            x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1, x2, y1+r, 
-            x2, y1+r, x2, y2-r, x2, y2-r, x2, y2, x2-r, y2, x2-r, y2, 
-            x1+r, y2, x1+r, y2, x1, y2, x1, y2-r, x1, y2-r, x1, y1+r, x1, y1+r, x1, y1
-        ]
-        
-        self.canvas.coords(self.ID, *new_points)
-
-        # Sincronizar el contenedor CTK
-        self.canvas.coords(self.window_id, x, y)
-        self.canvas.itemconfig(self.window_id, height=self.height - 40)
-
-        # Refrescar posiciones de sockets
-        self.update_sockets()
+    def update(self):
+        self.output_.value = True
 
     def get_data(self):
         return {
-            "type": self.TYPE,
-            "options": [
-                {
-                    "text": opt["entry"].get(),
-                    "socket": opt["index"]
-                }
-                for opt in self.options
-            ]
+            "type": "dialogue",
+            "character": self.character.name if self.character else None,
+            "text": self.textbox.get("0.0", "end").strip()
         }
 
     def destroy(self):
-        for opt in self.options:
-            opt["entry"].destroy()
-            opt["socket"].destroy()
+        '''
+        Destruimos el nodo y su contenido
+        '''
+        if self.ID not in self.canvas.find_all():
+            return
+        
+        for i in self.allIDs:
+            try:
+                self.canvas.delete(i)
+            except:
+                pass
+        
+        try:
+            self.canvas.node_list.remove(self)
+        except (KeyError, ValueError):
+            pass
+        
+        try:
+            self.canvas.obj_list.remove(self)
+        except (KeyError, ValueError, AttributeError):
+            pass
 
-        self.add_button.destroy()
-        super().destroy()
+    def _register_in_app(self):
+        try:
+            app = self.canvas.master.master.master.master.master
+            if hasattr(app, "active_nodes"):
+                app.active_nodes.append(self)
+        except Exception:
+            pass
 
-class NodeEvent(NodeEditable):
-    TYPE = "event"
+
+class NodeDecision(Node):
+    '''
+    Nodo de decision.
+    - 1 input
+    - N outputs dinamicos
+    - Textbox para pregunta
+    - Cada output tiene texto asociado
+    '''
+
+    WIDTH = 300
+    HEIGHT = 280
+    type = "DECISION"
+
+    def __init__(self, canvas, x=200, y=200, num_options=2):
+        center = (x, y)
+        super().__init__(
+            canvas=canvas,
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            center=center,
+            text="Decisión",
+            corner_radius=10,
+            fg_color="#3b3b3b",
+            border_color="#292929",
+            text_color="white"
+        )
+
+        self.inputs = []
+        self.outputs = []
+        self.option_textboxes = []
+        self.num_options = num_options
+        self.output_ = None 
+
+        self._create_sockets(x, y)
+        self._create_container(x, y)
+
+        self.bind_all_to_movement()
+        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
+                     lambda e: self.connect_input('input1'))
+        
+        # Bind outputs
+        for i, output in enumerate(self.outputs):
+            self.canvas.tag_bind(output.ID, '<Button-1>',
+                        lambda e, idx=i: self.connect_output(idx))
+        
+        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
+        self.socket_nums = len(self.outputs)
+        
+        # Escala inicial
+        for j in range(self.canvas.gain_in):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 1.1, 1.1)
+        for j in range(abs(self.canvas.gain_out)):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 0.9, 0.9)
+        
+        if x or y:
+            super().move(x, y)
+            
+        self._register_in_app()
+        self.canvas.obj_list.add(self)
+    
+    # =====================================================
+    # SOCKETS
+    # =====================================================
+
+    def _create_sockets(self, x, y):
+        # Input (izquierda)
+        self.input_1 = NodeSocket(
+            self.canvas,
+            center=(x - self.WIDTH / 2, y - 100),
+            radius=10,
+            fg_color="#00f56e",
+            socket_num=None
+        )
+        self.inputs.append(self.input_1)
+        self.allIDs.append(self.input_1.ID)
+
+        # Outputs (derecha, distribuidos verticalmente)
+        spacing = 200 / (self.num_options + 1)
+        for i in range(self.num_options):
+            output_y = y - 100 + (i + 1) * spacing
+            output = NodeSocket(
+                self.canvas,
+                center=(x + self.WIDTH / 2, output_y),
+                radius=10,
+                fg_color="#ff6b6b",
+                socket_num=None
+            )
+            self.outputs.append(output)
+            self.allIDs.append(output.ID)
+
+    def connect_output(self, option_index):
+        self.canvas.clickcount += 1
+        self.canvas.outputcell = self
+        self.canvas.current_output_index = option_index
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+        self.outputs[option_index].connect_wire()
+
+    def connect_input(self, input_id):
+        if self.canvas.outputcell is None:
+            return
+        self.canvas.clickcount += 1
+        self.canvas.inputcell = self
+        self.canvas.IDc = input_id
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+            self.canvas.conectcells()
+
+    def update_sockets(self):
+        '''
+        Sobrescribimoss update_sockets para actualizar todos los outputs
+        '''
+        for output in self.outputs:
+            output.update()
+        
+        try:
+            self.input_1.update()
+        except AttributeError:
+            pass
+        
+        for i in self.canvas.line_ids:
+            i.update()
+        
+        deleted = set()
+        for i in self.canvas.line_ids:
+            if not i.connected:
+                deleted.add(i)
+        self.canvas.line_ids = self.canvas.line_ids.difference(deleted)
+
+    # =====================================================
+    # CONTENIDO
+    # =====================================================
+
+    def _create_container(self, x, y):
+        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
+
+        # Label y Textbox para pregunta
+        lbl_question = ctk.CTkLabel(
+            self.container,
+            text="Pregunta:",
+            text_color="white",
+            font=("Arial", 10)
+        )
+        lbl_question.pack(pady=(5, 2))
+
+        self.question_textbox = ctk.CTkTextbox(
+            self.container,
+            width=270,
+            height=60,
+            font=("Arial", 9),
+            text_color="white",
+            fg_color="#2b2b2b",
+            border_color="#1a1a1a"
+        )
+        self.question_textbox.pack(pady=(0, 10))
+
+        # Frame para opciones
+        lbl_options = ctk.CTkLabel(
+            self.container,
+            text="Opciones:",
+            text_color="white",
+            font=("Arial", 10)
+        )
+        lbl_options.pack(pady=(0, 5))
+
+        options_frame = ctk.CTkScrollableFrame(
+            self.container,
+            width=270,
+            height=120,
+            fg_color="#2b2b2b"
+        )
+        options_frame.pack(pady=(0, 5), fill="both", expand=True)
+
+        # Textboxes para cada opcion
+        for i in range(self.num_options):
+            lbl = ctk.CTkLabel(
+                options_frame,
+                text=f"Opción {i + 1}:",
+                text_color="#ff6b6b",
+                font=("Arial", 9)
+            )
+            lbl.pack(pady=(5, 2))
+
+            textbox = ctk.CTkTextbox(
+                options_frame,
+                width=250,
+                height=30,
+                font=("Arial", 8),
+                text_color="white",
+                fg_color="#1a1a1a",
+                border_color="#0a0a0a"
+            )
+            textbox.pack(pady=(0, 5))
+            self.option_textboxes.append(textbox)
+
+        # Botones de control
+        button_frame = ctk.CTkFrame(self.container, fg_color="#3b3b3b")
+        button_frame.pack(pady=5)
+
+        btn_add = ctk.CTkButton(
+            button_frame,
+            text="+",
+            width=30,
+            height=25,
+            font=("Arial", 12),
+            command=self.add_option
+        )
+        btn_add.pack(side="left", padx=5)
+
+        btn_remove = ctk.CTkButton(
+            button_frame,
+            text="-",
+            width=30,
+            height=25,
+            font=("Arial", 12),
+            command=self.remove_option
+        )
+        btn_remove.pack(side="left", padx=5)
+
+    def add_option(self):
+        '''
+        Anyadimos una nueva opcion
+        '''
+        if self.num_options < 5:  # Limite de 5 opciones
+            self.num_options += 1
+            self.option_textboxes.append(None)
+
+    def remove_option(self):
+        '''
+        Elimina la ultima opcion creada
+        '''
+        if self.num_options > 2:
+            self.num_options -= 1
+            if self.option_textboxes:
+                self.option_textboxes.pop()
+
+        self.window_id = self.canvas.create_window(
+            x, y,
+            window=self.container,
+            width=self.WIDTH - 15,
+            height=self.HEIGHT - 30
+        )
+
+        self.allIDs.append(self.window_id)
+
+    # =====================================================
+    # UTILS
+    # =====================================================
+    def update(self):
+        for output in self.outputs:
+            output.value = True
+
+    def get_data(self):
+        options = []
+        for i, textbox in enumerate(self.option_textboxes[:self.num_options]):
+            if textbox is not None:
+                options.append({
+                    "index": i,
+                    "text": textbox.get("0.0", "end").strip()
+                })
+        
+        return {
+            "type": "decision",
+            "question": self.question_textbox.get("0.0", "end").strip(),
+            "options": options
+        }
+
+    def destroy(self):
+        """Destruir el nodo correctamente"""
+        if self.ID not in self.canvas.find_all():
+            return
+        
+        for i in self.allIDs:
+            try:
+                self.canvas.delete(i)
+            except:
+                pass
+        
+        try:
+            self.canvas.node_list.remove(self)
+        except (KeyError, ValueError):
+            pass
+        
+        try:
+            self.canvas.obj_list.remove(self)
+        except (KeyError, ValueError, AttributeError):
+            pass
+
+    def _register_in_app(self):
+        try:
+            app = self.canvas.master.master.master.master.master
+            if hasattr(app, "active_nodes"):
+                app.active_nodes.append(self)
+        except Exception:
+            pass
+
+
+class NodeEvent(Node):
+    '''
+    Nodo de evento.
+    - 1 input
+    - 1 output
+    - Textbox para dialogo
+    - Campo para nombre del evento
+    '''
+
+    WIDTH = 280
+    HEIGHT = 220
 
     def __init__(self, canvas, x=200, y=200):
-        super().__init__(canvas, x, y, text="Evento")
-
-        # Cambiar UI: no necesitamos textbox
-        self.textbox.destroy()
-
-        self.event_name = ctk.CTkEntry(
-            self.container,
-            placeholder_text="Nombre del evento"
+        center = (x, y)
+        super().__init__(
+            canvas=canvas,
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            center=center,
+            text="Evento",
+            corner_radius=10,
+            fg_color="#3b3b3b",
+            border_color="#292929",
+            text_color="white"
         )
-        self.event_name.pack(fill="x", pady=5)
+
+        self.inputs = []
+        self.outputs = []
+
+        self._create_sockets(x, y)
+        self._create_container(x, y)
+
+        self.bind_all_to_movement()
+        self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
+        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
+                     lambda e: self.connect_input('input1'))
+        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
+        self.socket_nums = len(self.outputs)
+        
+        # Escala inicial
+        for j in range(self.canvas.gain_in):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 1.1, 1.1)
+        for j in range(abs(self.canvas.gain_out)):
+            for i in self.allIDs:
+                self.canvas.scale(i, 0, 0, 0.9, 0.9)
+        
+        if x or y:
+            super().move(x, y)
+            
+        self._register_in_app()
+        self.canvas.obj_list.add(self)
+
+    def _create_sockets(self, x, y):
+        self.input_1 = NodeSocket(
+            self.canvas,
+            center=(x - self.WIDTH / 2, y),
+            radius=10,
+            fg_color="#00f56e",
+            socket_num=None
+        )
+        self.inputs.append(self.input_1)
+
+        self.output_ = NodeSocket(
+            self.canvas,
+            center=(x + self.WIDTH / 2, y),
+            radius=10,
+            fg_color="#00f56e",
+            socket_num=None
+        )
+        self.outputs.append(self.output_)
+
+        self.allIDs.extend([self.input_1.ID, self.output_.ID])
+
+    def _create_container(self, x, y):
+        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
+
+        # Label y Textbox para diálogo
+        lbl_text = ctk.CTkLabel(
+            self.container,
+            text="Diálogo:",
+            text_color="white",
+            font=("Arial", 10)
+        )
+        lbl_text.pack(pady=(5, 2))
+
+        self.textbox = ctk.CTkTextbox(
+            self.container,
+            width=250,
+            height=80,
+            font=("Arial", 9),
+            text_color="white",
+            fg_color="#2b2b2b",
+            border_color="#1a1a1a"
+        )
+        self.textbox.pack(pady=(0, 10))
+
+        # Label y Entry para evento
+        lbl_event = ctk.CTkLabel(
+            self.container,
+            text="Nombre del Evento:",
+            text_color="white",
+            font=("Arial", 10)
+        )
+        lbl_event.pack(pady=(0, 2))
+
+        self.event_entry = ctk.CTkEntry(
+            self.container,
+            width=250,
+            height=30,
+            font=("Arial", 10),
+            text_color="white",
+            fg_color="#2b2b2b",
+            border_color="#1a1a1a"
+        )
+        self.event_entry.pack(pady=(0, 5))
+
+        self.window_id = self.canvas.create_window(
+            x, y,
+            window=self.container,
+            width=self.WIDTH - 15,
+            height=self.HEIGHT - 30
+        )
+
+        self.allIDs.append(self.window_id)
+
+    def connect_output(self, event):
+        self.canvas.clickcount += 1
+        self.canvas.outputcell = self
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+        self.output_.connect_wire()
+
+    def connect_input(self, input_id):
+        if self.canvas.outputcell is None:
+            return
+        self.canvas.clickcount += 1
+        self.canvas.inputcell = self
+        self.canvas.IDc = input_id
+        if self.canvas.clickcount == 2:
+            self.canvas.clickcount = 0
+            self.canvas.conectcells()
+
+    def update(self):
+        self.output_.value = True
 
     def get_data(self):
         return {
-            "type": self.TYPE,
-            "event": self.event_name.get()
+            "type": "event",
+            "text": self.textbox.get("0.0", "end").strip(),
+            "event_name": self.event_entry.get()
         }
 
-    def get_next_node(self):
-        if not hasattr(self.canvas, "connections"):
-            return None
+    def destroy(self):
+        """Destruir el nodo correctamente"""
+        if self.ID not in self.canvas.find_all():
+            return
+        
+        for i in self.allIDs:
+            try:
+                self.canvas.delete(i)
+            except:
+                pass
+        
+        try:
+            self.canvas.node_list.remove(self)
+        except (KeyError, ValueError):
+            pass
+        
+        try:
+            self.canvas.obj_list.remove(self)
+        except (KeyError, ValueError, AttributeError):
+            pass
 
-        for conn in self.canvas.connections:
-            if conn.output_socket == self.output_:
-                return conn.input_socket.node
-        return None
+    def _register_in_app(self):
+        try:
+            app = self.canvas.master.master.master.master.master
+            if hasattr(app, "active_nodes"):
+                app.active_nodes.append(self)
+        except Exception:
+            pass
