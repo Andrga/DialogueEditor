@@ -55,7 +55,11 @@ class NodeEditorFrame(CTkFrame):
         self.canvas.wire_width = 10  # Grosor del cable
         self.canvas.wire_color = "#009c53"  # Color del cable
         self.canvas.connect_wire = True  # Permitir conexion de cables
+        # Solo inicializa si NO existen, para no romper la lógica interna de la lib
+        if not hasattr(self.canvas, 'obj_list'):
+            self.canvas.obj_list = set()
         self.canvas.line_ids = set()  # Almacenar referencias a cables
+        self.canvas.line_list = set() # Almacenar conexiones (socket_output, socket_input)
         
         # Asegurarse de que node_list existe
         if not hasattr(self.canvas, 'node_list'):
@@ -63,7 +67,6 @@ class NodeEditorFrame(CTkFrame):
         
         # Nodos default ?
         NodeStart(self.canvas, x=50, y=50)
-        #NodeOperation(self.canvas, x=250, y=50)
         NodeEnd(self.canvas, x=450, y=50)
 
         # Menu contextual para nodos a crear
@@ -117,7 +120,6 @@ class NodeEditorFrame(CTkFrame):
         # --- CONTENIDO ---
         lbl_right = CTkLabel(self.right_panel, text="Editor del nodo")
         lbl_right.pack(pady=10)
-
 
     def toggle_left_panel(self):
         if self.left_visible:

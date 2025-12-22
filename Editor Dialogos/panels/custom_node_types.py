@@ -34,7 +34,7 @@ class NodeStart(Node):
         
         self.bind_all_to_movement()
         self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
-        self.socket_nums = self.output_.socket_num
+        self.socket_nums = 1
         
         # Escala inicial
         for j in range(self.canvas.gain_in):
@@ -62,8 +62,9 @@ class NodeStart(Node):
             radius=10,
             fg_color="#00f56e",
             border_color="#009945",
-            socket_num=None
+            socket_num=self.canvas.socket_num
         )
+        self.canvas.socket_num += 1
         self.allIDs.append(self.output_.ID)
 
     def connect_output(self, event):        
@@ -184,15 +185,19 @@ class NodeEnd(Node):
             center=(x - self.WIDTH / 2, y),
             radius=10,
             fg_color="#f50000",
-            socket_num=None
+            hover_color="#e0af55",
+            socket_num=self.canvas.socket_num
         )
+        self.canvas.socket_num += 1
         self.output_ = NodeSocket(
             self.canvas,
             center=(x - self.WIDTH / 2, y),
             radius=10,
             fg_color="#f54500",
-            socket_num=None
+            hover_color="#e0af55",
+            socket_num=self.canvas.socket_num
         )
+        self.canvas.socket_num += 1
         self.allIDs.append(self.input_1.ID)
         self.output_.hide()
 
@@ -205,13 +210,12 @@ class NodeEnd(Node):
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
+            # --- PARCHE PARA EL EXPORTADOR ---
+            # Guardamos la relación lógica: (ID salida -> ID entrada)
+            out_id = self.canvas.outputcell.output_.socket_num
+            in_id = self.input_1.socket_num
+            self.canvas.line_list.add((out_id, in_id))
 
-        self.canvas.clickcount += 1
-        self.canvas.outputcell = self
-
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
- 
         self.output_.connect_wire()
 
     # =====================================================
@@ -278,9 +282,6 @@ class NodeDialogue(Node):
             border_color="#292929",
             text_color="white"
         )
-
-        self.inputs = []
-        self.outputs = []
         self.character = None
 
         self._create_sockets(x, y)
@@ -291,7 +292,7 @@ class NodeDialogue(Node):
         self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
                      lambda e: self.connect_input('input1'))
         self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
-        self.socket_nums = len(self.outputs)
+        self.socket_nums = 1
         
         # Escala inicial
         for j in range(self.canvas.gain_in):
@@ -317,18 +318,18 @@ class NodeDialogue(Node):
             center=(x - self.WIDTH / 2, y),
             radius=10,
             fg_color="#00f56e",
-            socket_num=None
+            socket_num=self.canvas.socket_num
         )
-        self.inputs.append(self.input_1)
+        self.canvas.socket_num += 1
 
         self.output_ = NodeSocket(
             self.canvas,
             center=(x + self.WIDTH / 2, y),
             radius=10,
             fg_color="#00f56e",
-            socket_num=None
+            socket_num=self.canvas.socket_num
         )
-        self.outputs.append(self.output_)
+        self.canvas.socket_num += 1
 
         self.allIDs.extend([self.input_1.ID, self.output_.ID])
 
@@ -348,14 +349,21 @@ class NodeDialogue(Node):
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
+            # --- PARCHE PARA EL EXPORTADOR ---
+            # Guardamos la relación lógica: (ID salida -> ID entrada)
+            out_id = self.canvas.outputcell.output_.socket_num
+            in_id = self.input_1.socket_num
+            self.canvas.line_list.add((out_id, in_id))
 
     # =====================================================
     # CONTENIDO
     # =====================================================
 
     def _create_container(self, x, y):
+        global characters
+        
         self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
-
+        
         # Label y Selector de personaje
         lbl_character = ctk.CTkLabel(
             self.container,
@@ -458,7 +466,6 @@ class NodeDialogue(Node):
         except Exception:
             pass
 
-
 class NodeDecision(Node):
     '''
     Nodo de decision.
@@ -486,7 +493,6 @@ class NodeDecision(Node):
             text_color="white"
         )
 
-        self.inputs = []
         self.outputs = []
         self.option_textboxes = []
         self.num_options = num_options
@@ -532,10 +538,10 @@ class NodeDecision(Node):
             center=(x - self.WIDTH / 2, y - 100),
             radius=10,
             fg_color="#00f56e",
-            socket_num=None
+            socket_num=self.canvas.socket_num
         )
-        self.inputs.append(self.input_1)
         self.allIDs.append(self.input_1.ID)
+        self.canvas.socket_num += 1
 
         # Outputs (derecha, distribuidos verticalmente)
         spacing = 200 / (self.num_options + 1)
@@ -546,9 +552,10 @@ class NodeDecision(Node):
                 center=(x + self.WIDTH / 2, output_y),
                 radius=10,
                 fg_color="#ff6b6b",
-                socket_num=None
+                socket_num=self.canvas.socket_num
             )
             self.outputs.append(output)
+            self.canvas.socket_num += 1
             self.allIDs.append(output.ID)
 
     def connect_output(self, option_index):
@@ -568,6 +575,11 @@ class NodeDecision(Node):
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
+            # --- PARCHE PARA EL EXPORTADOR ---
+            # Guardamos la relación lógica: (ID salida -> ID entrada)
+            out_id = self.canvas.outputcell.output_.socket_num
+            in_id = self.input_1.socket_num
+            self.canvas.line_list.add((out_id, in_id))
 
     def update_sockets(self):
         '''
@@ -757,7 +769,6 @@ class NodeDecision(Node):
         except Exception:
             pass
 
-
 class NodeEvent(Node):
     '''
     Nodo de evento.
@@ -795,7 +806,7 @@ class NodeEvent(Node):
         self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
                      lambda e: self.connect_input('input1'))
         self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
-        self.socket_nums = len(self.outputs)
+        self.socket_nums = 1
         
         # Escala inicial
         for j in range(self.canvas.gain_in):
@@ -817,18 +828,20 @@ class NodeEvent(Node):
             center=(x - self.WIDTH / 2, y),
             radius=10,
             fg_color="#00f56e",
-            socket_num=None
+            socket_num=self.canvas.socket_num
         )
         self.inputs.append(self.input_1)
+        self.canvas.socket_num += 1
 
         self.output_ = NodeSocket(
             self.canvas,
             center=(x + self.WIDTH / 2, y),
             radius=10,
             fg_color="#00f56e",
-            socket_num=None
+            socket_num=self.canvas.socket_num
         )
         self.outputs.append(self.output_)
+        self.canvas.socket_num += 1
 
         self.allIDs.extend([self.input_1.ID, self.output_.ID])
 
@@ -900,6 +913,7 @@ class NodeEvent(Node):
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
+            
 
     def update(self):
         self.output_.value = True
