@@ -1,0 +1,31 @@
+{
+  "characters": [
+    {
+      "name": "Personaje 2",
+      "font": "default_font",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#ff5e69"
+    },
+    {
+      "name": "Personaje 1",
+      "font": "default_font",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#4178ff"
+    }
+  ],
+  "lastModified": "2025-12-22T01:16:06.730937"
+}

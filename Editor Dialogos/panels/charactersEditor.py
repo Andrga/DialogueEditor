@@ -3,6 +3,7 @@ from tkinter import *
 from panels.defs import characters, character
 from CTkColorPicker import AskColor
 from customtkinter import CTkFrame
+from tkinter import messagebox
 
 class CharacterEditorFrame(CTkFrame):
     def __init__(self, master):
@@ -171,17 +172,18 @@ class CharacterEditorFrame(CTkFrame):
 
             # Combprobamos que el nombre no este vacio
             if not new_name:
-                print("Error: El nombre no puede estar vacío")
+                messagebox.showinfo("Error", f"El nombre no puede estar vacio")
                 return
             # Cambiamos la key del diccionario
             if new_name != old_name:
                 if new_name in characters:
-                    print("Error: Ya existe un personaje con ese nombre")
+                    messagebox.showinfo("Error", f"Ya hay un personaje con este nombre")
                     return
                 # Setteamos el objeto a la nueva key
                 characters[new_name] = characters.pop(old_name)
                 self.current_char_name = new_name
             # Resto de atributos
+            self.edit_char_obj.name = new_name
             self.edit_char_obj.color = self.color_var.get().strip()
 
             # Actualizamos la interfaz
@@ -190,7 +192,7 @@ class CharacterEditorFrame(CTkFrame):
             self._notify_app()
             print(f"Personaje '{new_name}' guardado correctamente.")
         else:
-            print("Error: no se ha guardado el personaje")
+            messagebox.showinfo("Error", f"No hay personaje")
             
 
     def _on_delete_click(self):
@@ -273,4 +275,4 @@ class CharacterEditorFrame(CTkFrame):
 
     def add_character(self, name, color):
         global characters
-        characters[name] = character(color)
+        characters[name] = character(name=name, color=color)

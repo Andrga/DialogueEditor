@@ -1,5 +1,9 @@
-# Variable global que 
+# Variable global que almacena personajes
 characters = {}
+# Variable global que almacena textos extra
+miscelaneousTexts = {
+    "lenguajes" : ["default"]
+}
 
 class character:
     def __init__(self, name="Character", color="#ffffff", font="", 
@@ -29,10 +33,10 @@ class Digraph:
             if hasta_id not in self.addys[desde_id]:
                 self.addys[desde_id].append(hasta_id)
         else:
-            # Si el nodo de origen no existe, lo creamos
+            # Si el nodo de origen no existe lo creamos
             self.addys[desde_id] = [hasta_id]
             
-        # Aseguramos que el nodo destino también exista en el diccionario
+        # Aseguramos que el nodo destino tambien exista en el diccionario
         if hasta_id not in self.addys:
             self.addys[hasta_id] = []
 
@@ -46,8 +50,8 @@ class Digraph:
         '''
         Comprueba si hay un camino desde inicio a fin
         '''
-        visitados = set()    # Nodos totalmente procesados
-        en_camino = set()    # Nodos en la pila de la ruta actual (recursión)
+        visitados = set()    # Nodos procesados
+        en_camino = set()    # Nodos en la pila de la ruta actual recursion
 
         def tiene_ciclo_dfs(u):
             visitados.add(u)
@@ -58,7 +62,7 @@ class Digraph:
                     if tiene_ciclo_dfs(v):
                         return True
                 elif v in en_camino:
-                    # Si el vecino ya está en la ruta actual, ¡es un ciclo!
+                    # Si el vecino ya esta en la ruta actual es un ciclo
                     return True
 
             en_camino.remove(u)

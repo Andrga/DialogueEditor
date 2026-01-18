@@ -206,7 +206,7 @@ class NodeEnd(Node):
             return
         self.canvas.clickcount += 1
         self.canvas.inputcell = self
-        self.canvas.IDc = input_id
+        self.canvas.ID = input_id
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
@@ -345,7 +345,7 @@ class NodeDialogue(Node):
             return
         self.canvas.clickcount += 1
         self.canvas.inputcell = self
-        self.canvas.IDc = input_id
+        self.canvas.ID = input_id
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
@@ -571,7 +571,7 @@ class NodeDecision(Node):
             return
         self.canvas.clickcount += 1
         self.canvas.inputcell = self
-        self.canvas.IDc = input_id
+        self.canvas.ID = input_id
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()
@@ -710,7 +710,6 @@ class NodeDecision(Node):
                 self.option_textboxes.pop()
 
         self.window_id = self.canvas.create_window(
-            x, y,
             window=self.container,
             width=self.WIDTH - 15,
             height=self.HEIGHT - 30
@@ -909,7 +908,7 @@ class NodeEvent(Node):
             return
         self.canvas.clickcount += 1
         self.canvas.inputcell = self
-        self.canvas.IDc = input_id
+        self.canvas.ID = input_id
         if self.canvas.clickcount == 2:
             self.canvas.clickcount = 0
             self.canvas.conectcells()

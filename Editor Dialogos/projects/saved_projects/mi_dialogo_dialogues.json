@@ -1,0 +1,25 @@
+{
+  "Dialogues": [
+    {
+      "DialogueID": 0,
+      "Texts": [
+        {
+          "Person": "Personaje 2",
+          "Emotion": "neutral",
+          "Text": "Hola",
+          "Callbacks": [],
+          "Type": "dialogue"
+        },
+        {
+          "Person": "Personaje 1",
+          "Emotion": "neutral",
+          "Text": "Hola, soy P2",
+          "Callbacks": [],
+          "Type": "dialogue"
+        }
+      ]
+    }
+  ],
+  "LastModified": "2025-12-22T01:16:06.732950",
+  "Version": "1.0"
+}
