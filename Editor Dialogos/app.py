@@ -88,7 +88,6 @@ class App(ctk.CTk):
         file_dropdown.add_option("Abrir", command=lambda:self.seryalizer.load_project())
         file_dropdown.add_option("Exportar", command=lambda:self.seryalizer.save_project())
    
-
         # --- MENU EDITAR ---
         edit_btn = menu_bar.add_cascade("Editar")
         edit_dropdown = CustomDropdownMenu(widget=edit_btn)

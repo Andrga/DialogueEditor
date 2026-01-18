@@ -1,954 +1,830 @@
-import __main__
 import customtkinter as ctk
-from tknodesystem.node import Node
-from tknodesystem.node_socket import NodeSocket
-from panels.defs import characters
+from tkinter import Canvas, Menu
 
-
-class NodeStart(Node):
-    '''
-    Nodo de inicio de conversacion.
-    - Sin inputs
-    - 1 output
-    '''
-
-    WIDTH = 160
-    HEIGHT = 80
-    type = "START"
-
-    def __init__(self, canvas, x=200, y=200):
-        center = (x, y)
-        super().__init__(
-            canvas=canvas,
-            width=self.WIDTH,
-            height=self.HEIGHT,
-            center=center,
-            text="START",
-            corner_radius=10,
-            fg_color="#2d5a2d",
-            border_color="#1a3a1a",
-            text_color="white"
+class GridCanvas(ctk.CTkFrame):
+    def __init__(self, master, grid_size=20, **kwargs):
+        super().__init__(master, **kwargs)
+        
+        self.grid_size = grid_size
+        self.offset_x = 0
+        self.offset_y = 0
+        self.drag_start_x = 0
+        self.drag_start_y = 0
+        self.draggingConnection = False
+        
+        # Canvas para la cuadricula y objetos
+        self.canvas = Canvas(
+            self,
+            bg="#1a1a1a",
+            highlightthickness=0
+            #, cursor="fleur"
         )
+        self.canvas.pack(fill="both", expand=True)
 
-        self._create_sockets(x, y)
+        # Lista de nodos en el canvas
+        self.nodes = []
         
-        self.bind_all_to_movement()
-        self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
-        self.socket_nums = 1
+        self.node_types = {}
         
-        # Escala inicial
-        for j in range(self.canvas.gain_in):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 1.1, 1.1)
-        for j in range(abs(self.canvas.gain_out)):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 0.9, 0.9)
-        
-        if x or y:
-            super().move(x, y)
-            
-        self._register_in_app()
-        self.canvas.obj_list.add(self)
+        # Bindeo de eventos
+        self.canvas.bind("<ButtonPress-1>", self.on_canvas_press)
+        self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
+        self.canvas.bind("<Configure>", self.on_resize)
+        self.canvas.bind("<Button-3>", self.show_context_menu) # Evento de clic derecho para menu contextual
+
+        # Crear menu contextual
+        self.create_context_menu()
+        # Dibujar cuadricula inicial
+        self.draw_grid()
     
-    # =====================================================
-    # SOCKETS
-    # =====================================================
-
-    def _create_sockets(self, x, y):
-        # Output (derecha)
-        self.output_ = NodeSocket(
-            self.canvas,
-            center=(x + self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#00f56e",
-            border_color="#009945",
-            socket_num=self.canvas.socket_num
-        )
-        self.canvas.socket_num += 1
-        self.allIDs.append(self.output_.ID)
-
-    def connect_output(self, event):        
-        self.canvas.clickcount += 1
-        self.canvas.outputcell = self
-
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
- 
-        self.output_.connect_wire()
-
-    # =====================================================
-    # UTILS
-    # =====================================================
-    def get_data(self):
-        return {"type": type}
-
-    def _register_in_app(self):
-        try:
-            app = self.canvas.master.master.master.master.master
-            if hasattr(app, "active_nodes"):
-                app.active_nodes.append(self)
-        except Exception:
-            pass
-
-    def destroy(self):
-        """Destruir el nodo correctamente"""
-        if self.ID not in self.canvas.find_all():
+    def draw_grid(self):
+        # Limpiar cuadricula anterior
+        self.canvas.delete("grid")
+        
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
+        
+        # Calcular offset normalizado
+        offset_x = self.offset_x % self.grid_size
+        offset_y = self.offset_y % self.grid_size
+        
+        # Lineas verticales
+        for i in range(0, width + self.grid_size, self.grid_size):
+            x = i + offset_x
+            self.canvas.create_line(
+                x, 0, x, height,
+                fill="#2a2a2a",
+                tags="grid"
+            )
+        
+        # Lineas horizontales
+        for i in range(0, height + self.grid_size, self.grid_size):
+            y = i + offset_y
+            self.canvas.create_line(
+                0, y, width, y,
+                fill="#2a2a2a",
+                tags="grid"
+            )
+        
+        # Enviar cuadricula al fondo
+        self.canvas.tag_lower("grid")
+    
+    def on_canvas_press(self, event):
+        # Cogemos los objetos en la posicion del clic
+        items = self.canvas.find_overlapping(event.x-5, event.y-5, event.x+5, event.y+5)
+        
+        # De todos los objetos a los que se ha hecho clic, cuyo tag no sea "grid" o "draggable_frame"
+        obj_items = [item for item in items if "grid" not in self.canvas.gettags(item) 
+                        and "draggable_frame" not in self.canvas.gettags(item)]
+        
+        # Si no se ha hecho clic en ningun objeto, se ha hecho clic en el fondo
+        if not obj_items:
+            # Arrastrar el canvas
+            self.drag_start_x = event.x
+            self.drag_start_y = event.y
+    
+    def on_canvas_drag(self, event):
+        #print("Canvas drag event, draggingConnection =", self.draggingConnection)
+        # Si se esta arrastrando una conexion, no mover el canvas
+        if self.draggingConnection:
+            #print("Dragging connection, not moving canvas")
             return
+        # Arrastrar el canvas
+        dx = event.x - self.drag_start_x
+        dy = event.y - self.drag_start_y
         
-        # Eliminar todos los IDs del canvas
-        for i in self.allIDs:
-            try:
-                self.canvas.delete(i)
-            except:
-                pass
+        self.offset_x += dx
+        self.offset_y += dy
         
-        # Remover de las listas del canvas
-        try:
-            self.canvas.node_list.remove(self)
-        except (KeyError, ValueError):
-            pass
+        # Mover todos los elementos del canvas
+        for node in self.nodes:
+            if hasattr(node, 'canvas_window') and node.canvas_window:
+                self.canvas.move(node.canvas_window, dx, dy)
+                
+                # Si es un nodo conectable, mover tambien sus conectores y actualizar conexiones
+                if isinstance(node, ConnectableNode):
+                    if node.input_connector:
+                        self.canvas.move(node.input_connector, dx, dy)
+                    if node.output_connector:
+                        self.canvas.move(node.output_connector, dx, dy)
+                    
+                    # Actualizar todas las conexiones despues de mover todos los nodos
+                    node.update_connections()
         
-        try:
-            self.canvas.obj_list.remove(self)
-        except (KeyError, ValueError, AttributeError):
-            pass
+        self.drag_start_x = event.x
+        self.drag_start_y = event.y
         
-        # Actualizar lineas
-        for i in list(self.canvas.line_ids):
-            try:
-                i.update()
-            except:
-                pass
-
-
-class NodeEnd(Node):
-    '''
-    Nodo de fin de conversacion.
-    - 1 input
-    - Sin outputs
-    '''
-    WIDTH = 160
-    HEIGHT = 80
-    type = "END"
-
-    def __init__(self, canvas, x=200, y=200):
-        center = (x, y)
-        super().__init__(
-            canvas=canvas,
-            width=self.WIDTH,
-            height=self.HEIGHT,
-            center=center,
-            text="END",
-            corner_radius=10,
-            fg_color="#5a2d2d",
-            border_color="#3a1a1a",
-            text_color="white"
-        )
-
-        self._create_sockets(x, y)
-        
-        self.bind_all_to_movement()
-        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
-                     lambda e: self.connect_input('input1'))
-        self.socket_nums = 0
-        
-        # Escala inicial
-        for j in range(self.canvas.gain_in):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 1.1, 1.1)
-        for j in range(abs(self.canvas.gain_out)):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 0.9, 0.9)
-        
-        if x or y:
-            super().move(x, y)
-            
-        self._register_in_app()
-        self.canvas.obj_list.add(self)
+        self.draw_grid()
     
-    def update(self):
+    def on_resize(self, event):
+        self.draw_grid()
+
+    def show_context_menu(self, event):
         '''
-        Copiado parcialmente de node_types.NodeCompile
-        '''            
-        self.previous_value = self.output_.value
-
-        self.canvas.after(50, self.update)
-    
-    # =====================================================
-    # SOCKETS
-    # =====================================================
-
-    def _create_sockets(self, x, y):
-        # Input (izquierda)
-        self.input_1 = NodeSocket(
-            self.canvas,
-            center=(x - self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#f50000",
-            hover_color="#e0af55",
-            socket_num=self.canvas.socket_num
-        )
-        self.canvas.socket_num += 1
-        self.output_ = NodeSocket(
-            self.canvas,
-            center=(x - self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#f54500",
-            hover_color="#e0af55",
-            socket_num=self.canvas.socket_num
-        )
-        self.canvas.socket_num += 1
-        self.allIDs.append(self.input_1.ID)
-        self.output_.hide()
-
-    def connect_input(self, input_id):
-        if self.canvas.outputcell is None:
-            return
-        self.canvas.clickcount += 1
-        self.canvas.inputcell = self
-        self.canvas.ID = input_id
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-            self.canvas.conectcells()
-            # --- PARCHE PARA EL EXPORTADOR ---
-            # Guardamos la relación lógica: (ID salida -> ID entrada)
-            out_id = self.canvas.outputcell.output_.socket_num
-            in_id = self.input_1.socket_num
-            self.canvas.line_list.add((out_id, in_id))
-
-        self.output_.connect_wire()
-
-    # =====================================================
-    # UTILS
-    # =====================================================
-    def get_data(self):
-        return {"type": type}
-
-    def destroy(self):
+        Muestra el menu contextual en la posicion del clic
         '''
-        Destruir el nodo correctamente
-        '''
-        if self.ID not in self.canvas.find_all():
-            return
-        
-        for i in self.allIDs:
-            try:
-                self.canvas.delete(i)
-            except:
-                pass
-        
+        self.right_click_pos = (event.x, event.y)
         try:
-            self.canvas.node_list.remove(self)
-        except (KeyError, ValueError):
-            pass
-        
-        try:
-            self.canvas.obj_list.remove(self)
-        except (KeyError, ValueError, AttributeError):
-            pass
-
-    def _register_in_app(self):
-        try:
-            app = self.canvas.master.master.master.master.master
-            if hasattr(app, "active_nodes"):
-                app.active_nodes.append(self)
-        except Exception:
-            pass
-
-
-class NodeDialogue(Node):
-    '''
-    Nodo de dialogo.
-    - 1 input
-    - 1 output
-    - Selector de personaje
-    - Textbox de dialogo
-    '''
-
-    WIDTH = 280
-    HEIGHT = 240
-    type = "DIALOGO"
-
-    def __init__(self, canvas, x=200, y=200):
-        center = (x, y)
-        super().__init__(
-            canvas=canvas,
-            width=self.WIDTH,
-            height=self.HEIGHT,
-            center=center,
-            text="Diálogo",
-            corner_radius=10,
-            fg_color="#3b3b3b",
-            border_color="#292929",
-            text_color="white"
-        )
-        self.character = None
-
-        self._create_sockets(x, y)
-        self._create_container(x, y)
-
-        self.bind_all_to_movement()
-        self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
-        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
-                     lambda e: self.connect_input('input1'))
-        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
-        self.socket_nums = 1
-        
-        # Escala inicial
-        for j in range(self.canvas.gain_in):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 1.1, 1.1)
-        for j in range(abs(self.canvas.gain_out)):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 0.9, 0.9)
-        
-        if x or y:
-            super().move(x, y)
-            
-        self._register_in_app()
-        self.canvas.obj_list.add(self)
-
-    # =====================================================
-    # SOCKETS
-    # =====================================================
-
-    def _create_sockets(self, x, y):
-        self.input_1 = NodeSocket(
-            self.canvas,
-            center=(x - self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#00f56e",
-            socket_num=self.canvas.socket_num
-        )
-        self.canvas.socket_num += 1
-
-        self.output_ = NodeSocket(
-            self.canvas,
-            center=(x + self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#00f56e",
-            socket_num=self.canvas.socket_num
-        )
-        self.canvas.socket_num += 1
-
-        self.allIDs.extend([self.input_1.ID, self.output_.ID])
-
-    def connect_output(self, event):
-        self.canvas.clickcount += 1
-        self.canvas.outputcell = self
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-        self.output_.connect_wire()
-
-    def connect_input(self, input_id):
-        if self.canvas.outputcell is None:
-            return
-        self.canvas.clickcount += 1
-        self.canvas.inputcell = self
-        self.canvas.ID = input_id
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-            self.canvas.conectcells()
-            # --- PARCHE PARA EL EXPORTADOR ---
-            # Guardamos la relación lógica: (ID salida -> ID entrada)
-            out_id = self.canvas.outputcell.output_.socket_num
-            in_id = self.input_1.socket_num
-            self.canvas.line_list.add((out_id, in_id))
-
-    # =====================================================
-    # CONTENIDO
-    # =====================================================
-
-    def _create_container(self, x, y):
-        global characters
-        
-        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
-        
-        # Label y Selector de personaje
-        lbl_character = ctk.CTkLabel(
-            self.container,
-            text="Personaje:",
-            text_color="white",
-            font=("Arial", 10)
-        )
-        lbl_character.pack(pady=(5, 2))
-
-        self.character_selector = ctk.CTkComboBox(
-            self.container,
-            values=list(characters.keys()),
-            command=self.on_character_selected,
-            width=250,
-            height=25,
-            font=("Arial", 9)
-        )
-        self.character_selector.pack(pady=(0, 5))
-
-        # Label y Textbox para dialogo
-        lbl_text = ctk.CTkLabel(
-            self.container,
-            text="Diálogo:",
-            text_color="white",
-            font=("Arial", 10)
-        )
-        lbl_text.pack(pady=(0, 2))
-
-        self.textbox = ctk.CTkTextbox(
-            self.container,
-            width=250,
-            height=120,
-            font=("Arial", 10),
-            text_color="white",
-            fg_color="#2b2b2b",
-            border_color="#1a1a1a"
-        )
-        self.textbox.pack(pady=(0, 5))
-
-        self.window_id = self.canvas.create_window(
-            x, y,
-            window=self.container,
-            width=self.WIDTH - 15,
-            height=self.HEIGHT - 30
-        )
-
-        self.allIDs.append(self.window_id)
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
     
-    def on_character_selected(self, name):
-        char = characters.get(name)
-        if char:
-            self.character = char
-            self.textbox.configure(text_color=char.color)
+    def create_context_menu(self):
+        '''
+        Crea el menu contextual con los tipos de nodos
+        '''
+        self.context_menu = Menu(self.canvas, tearoff=0, bg="#2b2b2b", fg="white", 
+                                activebackground="#1f6aa5", activeforeground="white",
+                                font=("Arial", 10))
+        
+        if self.node_types:
+            for node_name, node_class in self.node_types.items():
+                self.context_menu.add_command(
+                    label=node_name,
+                    command=lambda nc=node_class, nn=node_name: self.create_node_at_cursor(nc, nn)
+                )
         else:
-            self.character = None
-            self.textbox.configure(text_color="white")
+            self.context_menu.add_command(label="No hay tipos de nodos disponibles", state="disabled")
+
+    def create_node_at_cursor(self, node_class, node_name):
+        '''
+        Crea un nodo en la posicion del clic derecho
+        '''
+        x, y = self.right_click_pos
+        node = node_class(self, x, y)
+        self.add_node(node)
     
-    # =====================================================
-    # UTILS
-    # =====================================================
-
-    def update(self):
-        self.output_.value = True
-
-    def get_data(self):
-        return {
-            "type": "dialogue",
-            "character": self.character.name if self.character else None,
-            "text": self.textbox.get("0.0", "end").strip()
-        }
-
-    def destroy(self):
+    def register_node_type(self, name, node_class):
         '''
-        Destruimos el nodo y su contenido
+        Registra un nuevo tipo de nodo en el menu contextual
         '''
-        if self.ID not in self.canvas.find_all():
-            return
-        
-        for i in self.allIDs:
-            try:
-                self.canvas.delete(i)
-            except:
-                pass
-        
-        try:
-            self.canvas.node_list.remove(self)
-        except (KeyError, ValueError):
-            pass
-        
-        try:
-            self.canvas.obj_list.remove(self)
-        except (KeyError, ValueError, AttributeError):
-            pass
+        self.node_types[name] = node_class
+        # Recrear el menu contextual con el nuevo tipo
+        self.context_menu.destroy()
+        self.create_context_menu()
 
-    def _register_in_app(self):
-        try:
-            app = self.canvas.master.master.master.master.master
-            if hasattr(app, "active_nodes"):
-                app.active_nodes.append(self)
-        except Exception:
-            pass
-
-class NodeDecision(Node):
-    '''
-    Nodo de decision.
-    - 1 input
-    - N outputs dinamicos
-    - Textbox para pregunta
-    - Cada output tiene texto asociado
-    '''
-
-    WIDTH = 300
-    HEIGHT = 280
-    type = "DECISION"
-
-    def __init__(self, canvas, x=200, y=200, num_options=2):
-        center = (x, y)
-        super().__init__(
-            canvas=canvas,
-            width=self.WIDTH,
-            height=self.HEIGHT,
-            center=center,
-            text="Decisión",
-            corner_radius=10,
-            fg_color="#3b3b3b",
-            border_color="#292929",
-            text_color="white"
-        )
-
-        self.outputs = []
-        self.option_textboxes = []
-        self.num_options = num_options
-        self.output_ = None 
-
-        self._create_sockets(x, y)
-        self._create_container(x, y)
-
-        self.bind_all_to_movement()
-        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
-                     lambda e: self.connect_input('input1'))
-        
-        # Bind outputs
-        for i, output in enumerate(self.outputs):
-            self.canvas.tag_bind(output.ID, '<Button-1>',
-                        lambda e, idx=i: self.connect_output(idx))
-        
-        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
-        self.socket_nums = len(self.outputs)
-        
-        # Escala inicial
-        for j in range(self.canvas.gain_in):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 1.1, 1.1)
-        for j in range(abs(self.canvas.gain_out)):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 0.9, 0.9)
-        
-        if x or y:
-            super().move(x, y)
-            
-        self._register_in_app()
-        self.canvas.obj_list.add(self)
+    def add_node(self, node=None):
+        '''
+        Anyade un nodo arrastrable al canvas
+        '''
+        if node is not None:
+            self.nodes.append(node)
+        return node
     
-    # =====================================================
-    # SOCKETS
-    # =====================================================
-
-    def _create_sockets(self, x, y):
-        # Input (izquierda)
-        self.input_1 = NodeSocket(
-            self.canvas,
-            center=(x - self.WIDTH / 2, y - 100),
-            radius=10,
-            fg_color="#00f56e",
-            socket_num=self.canvas.socket_num
-        )
-        self.allIDs.append(self.input_1.ID)
-        self.canvas.socket_num += 1
-
-        # Outputs (derecha, distribuidos verticalmente)
-        spacing = 200 / (self.num_options + 1)
-        for i in range(self.num_options):
-            output_y = y - 100 + (i + 1) * spacing
-            output = NodeSocket(
-                self.canvas,
-                center=(x + self.WIDTH / 2, output_y),
-                radius=10,
-                fg_color="#ff6b6b",
-                socket_num=self.canvas.socket_num
-            )
-            self.outputs.append(output)
-            self.canvas.socket_num += 1
-            self.allIDs.append(output.ID)
-
-    def connect_output(self, option_index):
-        self.canvas.clickcount += 1
-        self.canvas.outputcell = self
-        self.canvas.current_output_index = option_index
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-        self.outputs[option_index].connect_wire()
-
-    def connect_input(self, input_id):
-        if self.canvas.outputcell is None:
-            return
-        self.canvas.clickcount += 1
-        self.canvas.inputcell = self
-        self.canvas.ID = input_id
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-            self.canvas.conectcells()
-            # --- PARCHE PARA EL EXPORTADOR ---
-            # Guardamos la relación lógica: (ID salida -> ID entrada)
-            out_id = self.canvas.outputcell.output_.socket_num
-            in_id = self.input_1.socket_num
-            self.canvas.line_list.add((out_id, in_id))
-
-    def update_sockets(self):
-        '''
-        Sobrescribimoss update_sockets para actualizar todos los outputs
-        '''
-        for output in self.outputs:
-            output.update()
-        
-        try:
-            self.input_1.update()
-        except AttributeError:
-            pass
-        
-        for i in self.canvas.line_ids:
-            i.update()
-        
-        deleted = set()
-        for i in self.canvas.line_ids:
-            if not i.connected:
-                deleted.add(i)
-        self.canvas.line_ids = self.canvas.line_ids.difference(deleted)
-
-    # =====================================================
-    # CONTENIDO
-    # =====================================================
-
-    def _create_container(self, x, y):
-        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
-
-        # Label y Textbox para pregunta
-        lbl_question = ctk.CTkLabel(
-            self.container,
-            text="Pregunta:",
-            text_color="white",
-            font=("Arial", 10)
-        )
-        lbl_question.pack(pady=(5, 2))
-
-        self.question_textbox = ctk.CTkTextbox(
-            self.container,
-            width=270,
-            height=60,
-            font=("Arial", 9),
-            text_color="white",
-            fg_color="#2b2b2b",
-            border_color="#1a1a1a"
-        )
-        self.question_textbox.pack(pady=(0, 10))
-
-        # Frame para opciones
-        lbl_options = ctk.CTkLabel(
-            self.container,
-            text="Opciones:",
-            text_color="white",
-            font=("Arial", 10)
-        )
-        lbl_options.pack(pady=(0, 5))
-
-        options_frame = ctk.CTkScrollableFrame(
-            self.container,
-            width=270,
-            height=120,
-            fg_color="#2b2b2b"
-        )
-        options_frame.pack(pady=(0, 5), fill="both", expand=True)
-
-        # Textboxes para cada opcion
-        for i in range(self.num_options):
-            lbl = ctk.CTkLabel(
-                options_frame,
-                text=f"Opción {i + 1}:",
-                text_color="#ff6b6b",
-                font=("Arial", 9)
-            )
-            lbl.pack(pady=(5, 2))
-
-            textbox = ctk.CTkTextbox(
-                options_frame,
-                width=250,
-                height=30,
-                font=("Arial", 8),
-                text_color="white",
-                fg_color="#1a1a1a",
-                border_color="#0a0a0a"
-            )
-            textbox.pack(pady=(0, 5))
-            self.option_textboxes.append(textbox)
-
-        # Botones de control
-        button_frame = ctk.CTkFrame(self.container, fg_color="#3b3b3b")
-        button_frame.pack(pady=5)
-
-        btn_add = ctk.CTkButton(
-            button_frame,
-            text="+",
-            width=30,
-            height=25,
-            font=("Arial", 12),
-            command=self.add_option
-        )
-        btn_add.pack(side="left", padx=5)
-
-        btn_remove = ctk.CTkButton(
-            button_frame,
-            text="-",
-            width=30,
-            height=25,
-            font=("Arial", 12),
-            command=self.remove_option
-        )
-        btn_remove.pack(side="left", padx=5)
-
-    def add_option(self):
-        '''
-        Anyadimos una nueva opcion
-        '''
-        if self.num_options < 5:  # Limite de 5 opciones
-            self.num_options += 1
-            self.option_textboxes.append(None)
-
-    def remove_option(self):
-        '''
-        Elimina la ultima opcion creada
-        '''
-        if self.num_options > 2:
-            self.num_options -= 1
-            if self.option_textboxes:
-                self.option_textboxes.pop()
-
-        self.window_id = self.canvas.create_window(
-            window=self.container,
-            width=self.WIDTH - 15,
-            height=self.HEIGHT - 30
-        )
-
-        self.allIDs.append(self.window_id)
-
-    # =====================================================
-    # UTILS
-    # =====================================================
-    def update(self):
-        for output in self.outputs:
-            output.value = True
-
-    def get_data(self):
-        options = []
-        for i, textbox in enumerate(self.option_textboxes[:self.num_options]):
-            if textbox is not None:
-                options.append({
-                    "index": i,
-                    "text": textbox.get("0.0", "end").strip()
-                })
-        
-        return {
-            "type": "decision",
-            "question": self.question_textbox.get("0.0", "end").strip(),
-            "options": options
-        }
-
-    def destroy(self):
-        """Destruir el nodo correctamente"""
-        if self.ID not in self.canvas.find_all():
-            return
-        
-        for i in self.allIDs:
-            try:
-                self.canvas.delete(i)
-            except:
-                pass
-        
-        try:
-            self.canvas.node_list.remove(self)
-        except (KeyError, ValueError):
-            pass
-        
-        try:
-            self.canvas.obj_list.remove(self)
-        except (KeyError, ValueError, AttributeError):
-            pass
-
-    def _register_in_app(self):
-        try:
-            app = self.canvas.master.master.master.master.master
-            if hasattr(app, "active_nodes"):
-                app.active_nodes.append(self)
-        except Exception:
-            pass
-
-class NodeEvent(Node):
+class nodeBase(ctk.CTkFrame):
     '''
-    Nodo de evento.
-    - 1 input
-    - 1 output
-    - Textbox para dialogo
-    - Campo para nombre del evento
+    Clase base para frames arrastrables en el canvas
     '''
+    _selected_node = None  # Nodo actualmente seleccionado (variable de clase)
 
-    WIDTH = 280
-    HEIGHT = 220
-
-    def __init__(self, canvas, x=200, y=200):
-        center = (x, y)
-        super().__init__(
-            canvas=canvas,
-            width=self.WIDTH,
-            height=self.HEIGHT,
-            center=center,
-            text="Evento",
-            corner_radius=10,
-            fg_color="#3b3b3b",
-            border_color="#292929",
-            text_color="white"
+    def __init__(self, canvas, x, y, width=150, height=100, title="Frame", **kwargs):
+        super().__init__(canvas, width=width, height=height, corner_radius=10, **kwargs)
+        
+        self.canvas = canvas.canvas
+        self.canvasGrid = canvas
+        self.canvas_window = None
+        self.drag_data = {"x": 0, "y": 0, "dragging": False}
+        
+        # Crear titulo
+        self.title_bar = ctk.CTkFrame(self, fg_color="#1f6aa5", corner_radius=8, height=30)
+        self.title_bar.pack(fill="x", padx=5, pady=(5, 0))
+        self.title_bar.pack_propagate(False)
+        
+        self.title_label = ctk.CTkLabel(
+            self.title_bar,
+            text=title,
+            font=("Arial", 12, "bold")
         )
-
-        self.inputs = []
-        self.outputs = []
-
-        self._create_sockets(x, y)
-        self._create_container(x, y)
-
-        self.bind_all_to_movement()
-        self.canvas.tag_bind(self.output_.ID, '<Button-1>', self.connect_output)
-        self.canvas.tag_bind(self.input_1.ID, '<Button-1>',
-                     lambda e: self.connect_input('input1'))
-        self.canvas.bind_all("<Delete>", lambda e: self.destroy() if self.signal else None, add="+")
-        self.socket_nums = 1
+        self.title_label.pack(side="left", padx=10, pady=5)
+        delete_btn = ctk.CTkButton(
+            self.title_bar,
+            text="X",
+            width=20,
+            height=20,
+            fg_color="#ff4d4d",
+            hover_color="#ff1a1a",
+            command=self.delete_node
+        )
+        delete_btn.pack(side="right", padx=5, pady=5)
         
-        # Escala inicial
-        for j in range(self.canvas.gain_in):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 1.1, 1.1)
-        for j in range(abs(self.canvas.gain_out)):
-            for i in self.allIDs:
-                self.canvas.scale(i, 0, 0, 0.9, 0.9)
+        # Contenedor para el contenido personalizado
+        self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.content_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        if x or y:
-            super().move(x, y)
+        # Configurar eventos de arrastre
+        self.title_bar.bind("<ButtonPress-1>", self._on_press)
+        self.title_bar.bind("<B1-Motion>", self._on_drag)
+        self.title_bar.bind("<ButtonRelease-1>", self._on_release)
+        self.title_label.bind("<ButtonPress-1>", self._on_press)
+        self.title_label.bind("<B1-Motion>", self._on_drag)
+        self.title_label.bind("<ButtonRelease-1>", self._on_release)
+        self.title_label.bind("<BackSpace>", self.delete_node)
+        
+        # Anyadir al canvas
+        self.canvas_window = self.canvas.create_window(x, y, window=self, anchor="nw", tags="draggable_frame")
+        
+        # Llamar al metodo de inicializacion del contenido
+        self.setup_content()
+    
+    def setup_content(self):
+        '''
+        Metodo para sobrescribir en clases hijas con el contenido personalizado
+        '''
+
+        # Contenido por defecto
+        label = ctk.CTkLabel(
+            self.content_frame,
+            text="Frame arrastrable\nSobrescribe setup_content()"
+        )
+        label.pack(expand=True, pady=10)
+    
+    def _on_press(self, event):
+        '''
+        Iniciar arrastre
+        '''
+
+        self.drag_data["dragging"] = True
+        self.drag_data["x"] = event.x_root
+        self.drag_data["y"] = event.y_root
+        self.title_bar.configure(cursor="fleur")
+        self.title_label.configure(cursor="fleur")
+        # Seleccionar el nodo al hacer clic en la barra de título
+        self.select()
+
+    def _on_select(self, event):
+        """Seleccionar este nodo"""
+        self.select()
+    
+    def select(self):
+        """Marca este nodo como seleccionado"""
+        # Deseleccionar el nodo anterior
+        if nodeBase._selected_node and nodeBase._selected_node != self:
+            nodeBase._selected_node.deselect()
+        
+        self.is_selected = True
+        nodeBase._selected_node = self
+        self.configure(border_width=3, border_color="#FFD700")  # Borde dorado
+    
+    def deselect(self):
+        """Desmarca este nodo como seleccionado"""
+        self.is_selected = False
+        self.configure(border_width=0)
+    
+    def delete_node(self):
+        """Elimina este nodo del canvas"""
+        print("Deleting node")
+        # Eliminar de la lista de nodos del canvas
+        if self in self.canvasGrid.nodes:
+            self.canvasGrid.nodes.remove(self)
+        
+        # Si este nodo estaba seleccionado, limpiar la selección
+        if nodeBase._selected_node == self:
+            nodeBase._selected_node = None
+        
+        # Destruir el nodo (esto llamará al método destroy personalizado si existe)
+        self.destroy()
+    
+    def _on_delete_key(self, event):
+        """Elimina el nodo seleccionado cuando se presiona Delete/Backspace"""
+        if nodeBase._selected_node:
+            nodeBase._selected_node.delete_node()
+    
+    def _on_drag(self, event):
+        '''
+        Arrastrar el frame
+        '''
+
+        if self.drag_data["dragging"]:
+            dx = event.x_root - self.drag_data["x"]
+            dy = event.y_root - self.drag_data["y"]
+            self.canvas.move(self.canvas_window, dx, dy)
+            self.drag_data["x"] = event.x_root
+            self.drag_data["y"] = event.y_root
+    
+    def _on_release(self, event):
+        '''
+        Finalizar arrastre
+        '''
+
+        self.drag_data["dragging"] = False
+        self.title_bar.configure(cursor="")
+        self.title_label.configure(cursor="")
+    
+    def get_position(self):
+        '''
+        Obtener posicion actual del frame
+        '''
+
+        coords = self.canvas.coords(self.canvas_window)
+        return coords[0], coords[1] if coords else (0, 0)
+    
+    def set_position(self, x, y):
+        '''
+        Establecer posicion del frame
+        '''
+        current_x, current_y = self.get_position()
+        dx = x - current_x
+        dy = y - current_y
+        self.canvas.move(self.canvas_window, dx, dy)
+        
+        # Si es un nodo conectable, actualizar también los conectores
+        if hasattr(self, 'input_connector') and self.input_connector:
+            self.canvas.move(self.input_connector, dx, dy)
+        if hasattr(self, 'output_connector') and self.output_connector:
+            self.canvas.move(self.output_connector, dx, dy)
+        
+        # Actualizar conexiones si existen
+        if hasattr(self, 'update_connections'):
+            self.update_connections()
             
-        self._register_in_app()
-        self.canvas.obj_list.add(self)
+        # Actualizar conexiones de otros nodos que apuntan a este
+        if hasattr(self, '__class__') and hasattr(self.__class__, '_all_nodes'):
+            for node in self.__class__._all_nodes:
+                if node != self and hasattr(node, 'connections'):
+                    for conn in node.connections:
+                        if conn.get("target") == self:
+                            node.update_connections()
 
-    def _create_sockets(self, x, y):
-        self.input_1 = NodeSocket(
-            self.canvas,
-            center=(x - self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#00f56e",
-            socket_num=self.canvas.socket_num
+class NodeFrame(nodeBase):
+    '''
+    Frame de nodo con entradas y salidas
+    '''
+    
+    def __init__(self, canvas, x, y, **kwargs):
+        super().__init__(canvas, x, y, width=180, height=150, title="Nodo", **kwargs)
+    
+    def setup_content(self):
+        # Input
+        input_label = ctk.CTkLabel(self.content_frame, text="Input:", anchor="w")
+        input_label.pack(fill="x", padx=10, pady=(5, 0))
+        
+        self.input_entry = ctk.CTkEntry(self.content_frame, placeholder_text="Valor de entrada")
+        self.input_entry.pack(fill="x", padx=10, pady=5)
+        
+        # Button
+        process_btn = ctk.CTkButton(
+            self.content_frame,
+            command=self.process,
+            height=3,width=3
         )
-        self.inputs.append(self.input_1)
-        self.canvas.socket_num += 1
-
-        self.output_ = NodeSocket(
-            self.canvas,
-            center=(x + self.WIDTH / 2, y),
-            radius=10,
-            fg_color="#00f56e",
-            socket_num=self.canvas.socket_num
+        process_btn.pack(padx=10, pady=5)
+        
+        # Output
+        self.output_label = ctk.CTkLabel(
+            self.content_frame,
+            text="Output: -",
+            anchor="w"
         )
-        self.outputs.append(self.output_)
-        self.canvas.socket_num += 1
+        self.output_label.pack(fill="x", padx=10, pady=5)
+    
+    def process(self):
+        value = self.input_entry.get()
+        self.output_label.configure(text=f"Output: {value.upper()}")
 
-        self.allIDs.extend([self.input_1.ID, self.output_.ID])
-
-    def _create_container(self, x, y):
-        self.container = ctk.CTkFrame(self.canvas, fg_color="#3b3b3b")
-
-        # Label y Textbox para diálogo
-        lbl_text = ctk.CTkLabel(
-            self.container,
-            text="Diálogo:",
-            text_color="white",
-            font=("Arial", 10)
+class ConnectableNode(nodeBase):
+    '''
+    Nodo con conectores de entrada y salida
+    '''
+    # Variable de clase para rastrear conexiones
+    _active_connector = None
+    _temp_line = None
+    _all_nodes = []
+    
+    def __init__(self, canvas, x, y, width=200, height=120, title="Nodo Conectable", **kwargs):
+        self.input_connector = None
+        self.output_connector = None
+        self.connections = []  # Lista de conexiones desde este nodo
+        self.input_connections = []  # Conexiones entrantes
+        
+        super().__init__(canvas, x, y, width=width, height=height, title=title, **kwargs)
+        
+        # Registrar este nodo
+        ConnectableNode._all_nodes.append(self)
+        
+        # Crear conectores después de que el frame esté en el canvas
+        self.after(100, self.create_connectors)
+    
+    def setup_content(self):
+        # Contenido central
+        label = ctk.CTkLabel(
+            self.content_frame,
+            text="Nodo Conectable\nConecta las bolitas",
+            justify="center"
         )
-        lbl_text.pack(pady=(5, 2))
+        label.pack(expand=True, pady=10)
+    
+    def create_connectors(self):
+        '''
+        Crea las bolitas de entrada y salida
+        '''
+        # Obtener posicion del frame
+        x, y = self.get_position()
+        frame_height = self.winfo_height()
+        
+        # Conector de entrada (izquierda)
+        input_y = y + frame_height // 2
+        self.input_connector = self.canvas.create_oval(
+            x - 10, input_y - 8,
+            x + 2, input_y + 8,
+            fill="#4CAF50",
+            outline="#ffffff",
+            width=2,
+            tags=("connector", "input", f"node_{id(self)}")
+        )
+        
+        # Conector de salida (derecha)
+        frame_width = self.winfo_width()
+        output_x = x + frame_width
+        output_y = y + frame_height // 2
+        self.output_connector = self.canvas.create_oval(
+            output_x - 2, output_y - 8,
+            output_x + 10, output_y + 8,
+            fill="#2196F3",
+            outline="#ffffff",
+            width=2,
+            tags=("connector", "output", f"node_{id(self)}")
+        )
+        
+        # Eventos para el conector de salida (inicio de conexion)
+        self.canvas.tag_bind(self.output_connector, "<ButtonPress-1>", self.start_connection)
+        self.canvas.tag_bind(self.output_connector, "<B1-Motion>", self.drag_connection)
+        self.canvas.tag_bind(self.output_connector, "<ButtonRelease-1>", self.end_connection)
+        
+        # Eventos para el conector de entrada (finalizar conexion)
+        self.canvas.tag_bind(self.input_connector, "<ButtonRelease-1>", self.receive_connection)
+    
+    def start_connection(self, event):
+        '''
+        Inicia una nueva conexion desde el conector de salida
+        '''
+        #print("Starting connection")
+        # Indicar que se esta arrastrando una conexion
+        self.canvasGrid.draggingConnection = True
+        ConnectableNode._active_connector = self
+        
+        # Obtener posicion del conector de salida
+        coords = self.canvas.coords(self.output_connector)
+        start_x = (coords[0] + coords[2]) / 2
+        start_y = (coords[1] + coords[3]) / 2
+        
+        # Crear linea temporal
+        ConnectableNode._temp_line = self.canvas.create_line(
+            start_x, start_y, event.x, event.y,
+            fill="#FFD700",
+            width=3,
+            tags="temp_connection"
+        )
+    
+    def drag_connection(self, event):
+        '''
+        Arrastra la linea de conexion temporal
+        '''
+        #print("Dragging connection")
+        self.canvasGrid.draggingConnection = True
+        if ConnectableNode._temp_line:
+            coords = self.canvas.coords(ConnectableNode._temp_line)
+            self.canvas.coords(ConnectableNode._temp_line, coords[0], coords[1], event.x, event.y)
+    
+    def end_connection(self, event):
+        '''
+        Finaliza la conexion
+        '''
+        #print("Ending connection")
+        self.canvasGrid.draggingConnection = False
+        if ConnectableNode._temp_line:
+            # Buscar si se solto sobre un conector de entrada
+            items = self.canvas.find_overlapping(event.x-5, event.y-5, event.x+5, event.y+5)
+            
+            connected = False
+            for item in items:
+                tags = self.canvas.gettags(item)
+                if "input" in tags and "connector" in tags:
+                    # Encontrar el nodo al que pertenece este conector
+                    for node in ConnectableNode._all_nodes:
+                        if node.input_connector == item and node != self:
+                            self.connect_to(node)
+                            connected = True
+                            break
+                    break
+            
+            # Si no se conecto, eliminar linea temporal
+            if not connected:
+                self.canvas.delete(ConnectableNode._temp_line)
+            
+            ConnectableNode._temp_line = None
+            ConnectableNode._active_connector = None 
+    
+    def receive_connection(self, event):
+        '''
+        Recibe una conexion en el conector de entrada
+        '''
+        if ConnectableNode._active_connector and ConnectableNode._active_connector != self:
+            ConnectableNode._active_connector.connect_to(self)
+    
+    def connect_to(self, target_node):
+        """Conecta este nodo con otro nodo"""
+        # Eliminar conexión anterior desde este nodo (solo una salida permitida)
+        if self.connections:
+            for conn in self.connections:
+                try:
+                    self.canvas.delete(conn["line"])
+                    # Eliminar referencia de input_connections del nodo destino anterior
+                    if conn["line"] in [ic["line"] for ic in conn["target"].input_connections]:
+                        conn["target"].input_connections = [
+                            ic for ic in conn["target"].input_connections 
+                            if ic["line"] != conn["line"]
+                        ]
+                except:
+                    pass
+            self.connections.clear()
+        
+        # Crear línea de conexión permanente
+        out_coords = self.canvas.coords(self.output_connector)
+        in_coords = self.canvas.coords(target_node.input_connector)
+        
+        out_x = (out_coords[0] + out_coords[2]) / 2
+        out_y = (out_coords[1] + out_coords[3]) / 2
+        in_x = (in_coords[0] + in_coords[2]) / 2
+        in_y = (in_coords[1] + in_coords[3]) / 2
+        
+        connection_line = self.canvas.create_line(
+            out_x, out_y, in_x, in_y,
+            fill="#00FF88",
+            width=3,
+            tags="connection",
+            arrow="last",
+            arrowshape=(10, 12, 5)
+        )
+        
+        # Enviar línea al fondo (pero encima de la cuadrícula)
+        self.canvas.tag_lower(connection_line)
+        self.canvas.tag_raise(connection_line, "grid")
+        
+        # Eliminar línea temporal si existe
+        if ConnectableNode._temp_line:
+            self.canvas.delete(ConnectableNode._temp_line)
+        
+        # Registrar conexión de salida
+        self.connections.append({
+            "target": target_node,
+            "line": connection_line
+        })
+        
+        # Registrar conexión de entrada en el nodo destino
+        target_node.input_connections.append({
+            "source": self,
+            "line": connection_line
+        })
+    
+    def update_connections(self):
+        '''
+        Actualiza las posiciones de las lineas de conexion
+        '''
+        # Actualizar conexiones salientes
+        for conn in self.connections:
+            target = conn["target"]
+            line = conn["line"]
+            
+            out_coords = self.canvas.coords(self.output_connector)
+            in_coords = self.canvas.coords(target.input_connector)
+            
+            if out_coords and in_coords:
+                out_x = (out_coords[0] + out_coords[2]) / 2
+                out_y = (out_coords[1] + out_coords[3]) / 2
+                in_x = (in_coords[0] + in_coords[2]) / 2
+                in_y = (in_coords[1] + in_coords[3]) / 2
+                
+                self.canvas.coords(line, out_x, out_y, in_x, in_y)
+    
+    def _on_drag(self, event):
+        '''
+        Arrastrar el frame y actualizar conectores
+        '''
+        if self.drag_data["dragging"]:
+            dx = event.x_root - self.drag_data["x"]
+            dy = event.y_root - self.drag_data["y"]
+            
+            # Mover el frame
+            self.canvas.move(self.canvas_window, dx, dy)
+            
+            # Mover conectores
+            self.canvas.move(self.input_connector, dx, dy)
+            self.canvas.move(self.output_connector, dx, dy)
+            
+            # Actualizar mis conexiones
+            self.update_connections()
+            
+            # Actualizar conexiones de otros nodos que apuntan a mi
+            for node in ConnectableNode._all_nodes:
+                if node != self:
+                    for conn in node.connections:
+                        if conn["target"] == self:
+                            node.update_connections()
+            
+            self.drag_data["x"] = event.x_root
+            self.drag_data["y"] = event.y_root
+    
+    def destroy(self):
+        """Limpia las conexiones antes de destruir el nodo"""
+        try:
+            # Verificar si el canvas todavía existe
+            if self.canvas and self.canvas.winfo_exists():
+                # Eliminar todas las conexiones salientes
+                for conn in self.connections:
+                    try:
+                        self.canvas.delete(conn["line"])
+                        # Limpiar referencia en el nodo destino
+                        if conn["target"]:
+                            conn["target"].input_connections = [
+                                ic for ic in conn["target"].input_connections 
+                                if ic["line"] != conn["line"]
+                            ]
+                    except:
+                        pass
+                
+                # Eliminar conexiones entrantes
+                for conn in self.input_connections:
+                    try:
+                        self.canvas.delete(conn["line"])
+                        # Limpiar referencia en el nodo origen
+                        if conn["source"]:
+                            conn["source"].connections = [
+                                c for c in conn["source"].connections 
+                                if c["line"] != conn["line"]
+                            ]
+                    except:
+                        pass
+                
+                # Eliminar conectores
+                if self.input_connector:
+                    try:
+                        self.canvas.delete(self.input_connector)
+                    except:
+                        pass
+                if self.output_connector:
+                    try:
+                        self.canvas.delete(self.output_connector)
+                    except:
+                        pass
+        except:
+            pass
+        
+        # Eliminar de la lista de nodos
+        if self in ConnectableNode._all_nodes:
+            ConnectableNode._all_nodes.remove(self)
+        
+        super().destroy()
 
-        self.textbox = ctk.CTkTextbox(
-            self.container,
-            width=250,
+class StartNode(ConnectableNode):
+    '''    
+    Nodo de inicio, solo tiene salida
+    '''
+    
+    def __init__(self, canvas, x, y, **kwargs):
+        super().__init__(canvas, x, y, width=150, height=100, title="Start", **kwargs)
+    
+    def setup_content(self):
+        label = ctk.CTkTextbox(
+            self.content_frame,
+            width=200,
+            height=90,
+            font=("Arial", 12),
+            wrap="word"
+        )
+        label.pack(expand=True, pady=1)
+    
+    def create_connectors(self):
+        '''
+        Crea solo el conector de salida
+        '''
+        # Obtener posición del frame
+        x, y = self.get_position()
+        frame_height = self.winfo_height()
+        frame_width = self.winfo_width()
+        
+        # Solo conector de salida (derecha)
+        output_x = x + frame_width
+        output_y = y + frame_height // 2
+        self.output_connector = self.canvas.create_oval(
+            output_x - 2, output_y - 8,
+            output_x + 10, output_y + 8,
+            fill="#4CAF50",  # Verde para inicio
+            outline="#ffffff",
+            width=2,
+            tags=("connector", "output", f"node_{id(self)}")
+        )
+        
+        # Eventos para el conector de salida
+        self.canvas.tag_bind(self.output_connector, "<ButtonPress-1>", self.start_connection)
+        self.canvas.tag_bind(self.output_connector, "<B1-Motion>", self.drag_connection)
+        self.canvas.tag_bind(self.output_connector, "<ButtonRelease-1>", self.end_connection)
+        
+        # No crear input_connector (permanece None)
+    
+    def _on_drag(self, event):
+        '''
+        Arrastrar el frame y actualizar conector de salida
+        '''
+        if self.drag_data["dragging"]:
+            dx = event.x_root - self.drag_data["x"]
+            dy = event.y_root - self.drag_data["y"]
+            
+            # Mover el frame
+            self.canvas.move(self.canvas_window, dx, dy)
+            
+            # Mover solo el conector de salida
+            if self.output_connector:
+                self.canvas.move(self.output_connector, dx, dy)
+            
+            # Actualizar mis conexiones
+            self.update_connections()
+            
+            self.drag_data["x"] = event.x_root
+            self.drag_data["y"] = event.y_root
+
+
+class EndNode(ConnectableNode):
+    '''
+    Nodo de fin, solo tiene entrada
+    '''
+    
+    def __init__(self, canvas, x, y, **kwargs):
+        # Establecer valores por defecto si no se proporcionan
+        super().__init__(canvas, x, y, width=150, height=100, title="End", **kwargs)
+    
+    def setup_content(self):
+        label = ctk.CTkTextbox(
+            self.content_frame,
+            width=140,
             height=80,
-            font=("Arial", 9),
-            text_color="white",
-            fg_color="#2b2b2b",
-            border_color="#1a1a1a"
+            font=("Arial", 12),
+            wrap="word"
         )
-        self.textbox.pack(pady=(0, 10))
-
-        # Label y Entry para evento
-        lbl_event = ctk.CTkLabel(
-            self.container,
-            text="Nombre del Evento:",
-            text_color="white",
-            font=("Arial", 10)
+        label.pack(expand=True, pady=10)
+    
+    def create_connectors(self):
+        '''
+        Crea solo el conector de entrada
+        '''
+        # Obtener posición del frame
+        x, y = self.get_position()
+        frame_height = self.winfo_height()
+        
+        # Solo conector de entrada (izquierda)
+        input_y = y + frame_height // 2
+        self.input_connector = self.canvas.create_oval(
+            x - 10, input_y - 8,
+            x + 2, input_y + 8,
+            fill="#FF5252",  # Rojo para fin
+            outline="#ffffff",
+            width=2,
+            tags=("connector", "input", f"node_{id(self)}")
         )
-        lbl_event.pack(pady=(0, 2))
-
-        self.event_entry = ctk.CTkEntry(
-            self.container,
-            width=250,
-            height=30,
-            font=("Arial", 10),
-            text_color="white",
-            fg_color="#2b2b2b",
-            border_color="#1a1a1a"
-        )
-        self.event_entry.pack(pady=(0, 5))
-
-        self.window_id = self.canvas.create_window(
-            x, y,
-            window=self.container,
-            width=self.WIDTH - 15,
-            height=self.HEIGHT - 30
-        )
-
-        self.allIDs.append(self.window_id)
-
-    def connect_output(self, event):
-        self.canvas.clickcount += 1
-        self.canvas.outputcell = self
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-        self.output_.connect_wire()
-
-    def connect_input(self, input_id):
-        if self.canvas.outputcell is None:
-            return
-        self.canvas.clickcount += 1
-        self.canvas.inputcell = self
-        self.canvas.ID = input_id
-        if self.canvas.clickcount == 2:
-            self.canvas.clickcount = 0
-            self.canvas.conectcells()
+        
+        # Eventos para el conector de entrada
+        self.canvas.tag_bind(self.input_connector, "<ButtonRelease-1>", self.receive_connection)
+        
+        # No crear output_connector (permanece None)
+    
+    def _on_drag(self, event):
+        '''
+        Arrastrar el frame y actualizar conector de entrada
+        '''
+        if self.drag_data["dragging"]:
+            dx = event.x_root - self.drag_data["x"]
+            dy = event.y_root - self.drag_data["y"]
             
+            # Mover el frame
+            self.canvas.move(self.canvas_window, dx, dy)
+            
+            # Mover solo el conector de entrada
+            if self.input_connector:
+                self.canvas.move(self.input_connector, dx, dy)
+            
+            # Actualizar conexiones de otros nodos que apuntan a mí
+            for node in ConnectableNode._all_nodes:
+                if node != self:
+                    for conn in node.connections:
+                        if conn["target"] == self:
+                            node.update_connections()
+            
+            self.drag_data["x"] = event.x_root
+            self.drag_data["y"] = event.y_root
 
-    def update(self):
-        self.output_.value = True
-
-    def get_data(self):
-        return {
-            "type": "event",
-            "text": self.textbox.get("0.0", "end").strip(),
-            "event_name": self.event_entry.get()
-        }
-
-    def destroy(self):
-        """Destruir el nodo correctamente"""
-        if self.ID not in self.canvas.find_all():
-            return
-        
-        for i in self.allIDs:
-            try:
-                self.canvas.delete(i)
-            except:
-                pass
-        
-        try:
-            self.canvas.node_list.remove(self)
-        except (KeyError, ValueError):
-            pass
-        
-        try:
-            self.canvas.obj_list.remove(self)
-        except (KeyError, ValueError, AttributeError):
-            pass
-
-    def _register_in_app(self):
-        try:
-            app = self.canvas.master.master.master.master.master
-            if hasattr(app, "active_nodes"):
-                app.active_nodes.append(self)
-        except Exception:
-            pass
+class DialogueNode (ConnectableNode):
+    '''    
+    Nodo de dialogo
+    '''
+    
+    def __init__(self, canvas, x, y, **kwargs):
+        super().__init__(canvas, x, y, width=200, height=150, title="Start", **kwargs)
+    
+    def setup_content(self):
+        label = ctk.CTkTextbox(
+            self.content_frame,
+            width=200,
+            height=140,
+            font=("Arial", 12),
+            wrap="word"
+        )
+        label.pack(expand=True, pady=1)
