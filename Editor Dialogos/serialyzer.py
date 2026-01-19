@@ -267,8 +267,7 @@ class Serialyzer:
 
     def _serialize_dialogues(self):
         try:
-            node_editor_frame = self.nodesTab.children['!nodeeditorframe']
-            canvas = node_editor_frame.canvas
+            Dialogue_graph = self.nodesTab.canvas_container.graph
         except (KeyError, AttributeError):
             return {"Dialogues": [], "LastModified": datetime.now().isoformat()}
 

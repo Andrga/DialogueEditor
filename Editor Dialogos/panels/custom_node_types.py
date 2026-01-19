@@ -1,10 +1,13 @@
 import customtkinter as ctk
+from panels.defs import Digraph
 from tkinter import Canvas, Menu
 
 class GridCanvas(ctk.CTkFrame):
+
     def __init__(self, master, grid_size=20, **kwargs):
         super().__init__(master, **kwargs)
         
+        self.graph = Digraph() # Grafo de nodos asociado al canvas
         self.grid_size = grid_size
         self.offset_x = 0
         self.offset_y = 0
@@ -169,6 +172,8 @@ class GridCanvas(ctk.CTkFrame):
         '''
         if node is not None:
             self.nodes.append(node)
+            self.graph.add_node(node)
+        print(str(self.graph))
         return node
     
 class nodeBase(ctk.CTkFrame):
@@ -230,11 +235,10 @@ class nodeBase(ctk.CTkFrame):
         '''
         Metodo para sobrescribir en clases hijas con el contenido personalizado
         '''
-
         # Contenido por defecto
         label = ctk.CTkLabel(
             self.content_frame,
-            text="Frame arrastrable\nSobrescribe setup_content()"
+            text="Sobrescribir setup_content()"
         )
         label.pack(expand=True, pady=10)
     
@@ -248,15 +252,19 @@ class nodeBase(ctk.CTkFrame):
         self.drag_data["y"] = event.y_root
         self.title_bar.configure(cursor="fleur")
         self.title_label.configure(cursor="fleur")
-        # Seleccionar el nodo al hacer clic en la barra de título
+        # Seleccionar el nodo al hacer clic en la barra de titulo
         self.select()
 
     def _on_select(self, event):
-        """Seleccionar este nodo"""
+        '''
+        Seleccionar este nodo
+        '''
         self.select()
     
     def select(self):
-        """Marca este nodo como seleccionado"""
+        '''
+        Marca este nodo como seleccionado
+        '''
         # Deseleccionar el nodo anterior
         if nodeBase._selected_node and nodeBase._selected_node != self:
             nodeBase._selected_node.deselect()
@@ -266,26 +274,34 @@ class nodeBase(ctk.CTkFrame):
         self.configure(border_width=3, border_color="#FFD700")  # Borde dorado
     
     def deselect(self):
-        """Desmarca este nodo como seleccionado"""
+        '''
+        Desmarca este nodo como seleccionado
+        '''
         self.is_selected = False
         self.configure(border_width=0)
     
     def delete_node(self):
-        """Elimina este nodo del canvas"""
-        print("Deleting node")
+        '''
+        Elimina este nodo del canvas
+        '''
+        #print("Deleting node")
         # Eliminar de la lista de nodos del canvas
         if self in self.canvasGrid.nodes:
             self.canvasGrid.nodes.remove(self)
         
-        # Si este nodo estaba seleccionado, limpiar la selección
+        # Si este nodo estaba seleccionado, limpiar la seleccion
         if nodeBase._selected_node == self:
             nodeBase._selected_node = None
         
-        # Destruir el nodo (esto llamará al método destroy personalizado si existe)
+        # Eliminar del grafo
+        self.canvasGrid.graph.remove_node(self)
+        # Destruir el nodo (esto llamara al metodo destroy personalizado si existe)
         self.destroy()
     
     def _on_delete_key(self, event):
-        """Elimina el nodo seleccionado cuando se presiona Delete/Backspace"""
+        '''
+        Elimina el nodo seleccionado cuando se presiona Delete/Backspace
+        '''
         if nodeBase._selected_node:
             nodeBase._selected_node.delete_node()
     
@@ -327,7 +343,7 @@ class nodeBase(ctk.CTkFrame):
         dy = y - current_y
         self.canvas.move(self.canvas_window, dx, dy)
         
-        # Si es un nodo conectable, actualizar también los conectores
+        # Si es un nodo conectable, actualizar tambien los conectores
         if hasattr(self, 'input_connector') and self.input_connector:
             self.canvas.move(self.input_connector, dx, dy)
         if hasattr(self, 'output_connector') and self.output_connector:
@@ -344,42 +360,6 @@ class nodeBase(ctk.CTkFrame):
                     for conn in node.connections:
                         if conn.get("target") == self:
                             node.update_connections()
-
-class NodeFrame(nodeBase):
-    '''
-    Frame de nodo con entradas y salidas
-    '''
-    
-    def __init__(self, canvas, x, y, **kwargs):
-        super().__init__(canvas, x, y, width=180, height=150, title="Nodo", **kwargs)
-    
-    def setup_content(self):
-        # Input
-        input_label = ctk.CTkLabel(self.content_frame, text="Input:", anchor="w")
-        input_label.pack(fill="x", padx=10, pady=(5, 0))
-        
-        self.input_entry = ctk.CTkEntry(self.content_frame, placeholder_text="Valor de entrada")
-        self.input_entry.pack(fill="x", padx=10, pady=5)
-        
-        # Button
-        process_btn = ctk.CTkButton(
-            self.content_frame,
-            command=self.process,
-            height=3,width=3
-        )
-        process_btn.pack(padx=10, pady=5)
-        
-        # Output
-        self.output_label = ctk.CTkLabel(
-            self.content_frame,
-            text="Output: -",
-            anchor="w"
-        )
-        self.output_label.pack(fill="x", padx=10, pady=5)
-    
-    def process(self):
-        value = self.input_entry.get()
-        self.output_label.configure(text=f"Output: {value.upper()}")
 
 class ConnectableNode(nodeBase):
     '''
@@ -401,7 +381,7 @@ class ConnectableNode(nodeBase):
         # Registrar este nodo
         ConnectableNode._all_nodes.append(self)
         
-        # Crear conectores después de que el frame esté en el canvas
+        # Crear conectores despues de que el frame este en el canvas
         self.after(100, self.create_connectors)
     
     def setup_content(self):
@@ -522,10 +502,14 @@ class ConnectableNode(nodeBase):
             ConnectableNode._active_connector.connect_to(self)
     
     def connect_to(self, target_node):
-        """Conecta este nodo con otro nodo"""
-        # Eliminar conexión anterior desde este nodo (solo una salida permitida)
+        '''
+        Conecta este nodo con otro nodo
+        '''
+        # Eliminar conexion anterior desde este nodo (solo una salida permitida)
         if self.connections:
             for conn in self.connections:
+                # Eliminar la conexion del grafo
+                self.canvasGrid.graph.remove_edge(self, conn["target"])
                 try:
                     self.canvas.delete(conn["line"])
                     # Eliminar referencia de input_connections del nodo destino anterior
@@ -538,7 +522,7 @@ class ConnectableNode(nodeBase):
                     pass
             self.connections.clear()
         
-        # Crear línea de conexión permanente
+        # Crear linea de conexion permanente
         out_coords = self.canvas.coords(self.output_connector)
         in_coords = self.canvas.coords(target_node.input_connector)
         
@@ -556,21 +540,22 @@ class ConnectableNode(nodeBase):
             arrowshape=(10, 12, 5)
         )
         
-        # Enviar línea al fondo (pero encima de la cuadrícula)
+        # Enviar linea al fondo (pero encima de la cuadricula)
         self.canvas.tag_lower(connection_line)
         self.canvas.tag_raise(connection_line, "grid")
         
-        # Eliminar línea temporal si existe
+        # Eliminar linea temporal si existe
         if ConnectableNode._temp_line:
             self.canvas.delete(ConnectableNode._temp_line)
         
-        # Registrar conexión de salida
+        # Registrar conexion de salida
         self.connections.append({
             "target": target_node,
             "line": connection_line
         })
         
-        # Registrar conexión de entrada en el nodo destino
+        # Registrar conexion de entrada en el nodo destino
+        self.canvasGrid.graph.add_edge(self, target_node)
         target_node.input_connections.append({
             "source": self,
             "line": connection_line
@@ -625,9 +610,9 @@ class ConnectableNode(nodeBase):
             self.drag_data["y"] = event.y_root
     
     def destroy(self):
-        """Limpia las conexiones antes de destruir el nodo"""
+        '''Limpia las conexiones antes de destruir el nodo'''
         try:
-            # Verificar si el canvas todavía existe
+            # Verificar si el canvas todavia existe
             if self.canvas and self.canvas.winfo_exists():
                 # Eliminar todas las conexiones salientes
                 for conn in self.connections:
@@ -697,7 +682,7 @@ class StartNode(ConnectableNode):
         '''
         Crea solo el conector de salida
         '''
-        # Obtener posición del frame
+        # Obtener posicion del frame
         x, y = self.get_position()
         frame_height = self.winfo_height()
         frame_width = self.winfo_width()
@@ -766,7 +751,7 @@ class EndNode(ConnectableNode):
         '''
         Crea solo el conector de entrada
         '''
-        # Obtener posición del frame
+        # Obtener posicion del frame
         x, y = self.get_position()
         frame_height = self.winfo_height()
         
@@ -801,7 +786,7 @@ class EndNode(ConnectableNode):
             if self.input_connector:
                 self.canvas.move(self.input_connector, dx, dy)
             
-            # Actualizar conexiones de otros nodos que apuntan a mí
+            # Actualizar conexiones de otros nodos que apuntan a mi
             for node in ConnectableNode._all_nodes:
                 if node != self:
                     for conn in node.connections:

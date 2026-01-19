@@ -24,6 +24,18 @@ class Digraph:
         '''
         if node_id not in self.addys:
             self.addys[node_id] = []
+    
+    def remove_node(self, node_id):
+        '''
+        Elimina un nodo y todas sus aristas
+        '''
+        if node_id in self.addys:
+            # Eliminar todas las aristas que van hacia este nodo
+            for n in self.addys:
+                if node_id in self.addys[n]:
+                    self.addys[n].remove(node_id)
+            # Eliminar el nodo del grafo
+            del self.addys[node_id]
 
     def add_edge(self, desde_id, hasta_id):
         '''
@@ -39,6 +51,14 @@ class Digraph:
         # Aseguramos que el nodo destino tambien exista en el diccionario
         if hasta_id not in self.addys:
             self.addys[hasta_id] = []
+    
+    def remove_edge(self, desde_id, hasta_id):
+        '''
+        Elimina una arista desde -> hasta
+        '''
+        if desde_id in self.addys:
+            if hasta_id in self.addys[desde_id]:
+                self.addys[desde_id].remove(hasta_id)
 
     def obtener_vecinos(self, node_id):
         '''
