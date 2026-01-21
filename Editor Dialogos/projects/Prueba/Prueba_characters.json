@@ -1,0 +1,31 @@
+{
+  "characters": [
+    {
+      "name": "Ronda",
+      "font": "default_font",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#ffe024"
+    },
+    {
+      "name": "Masca",
+      "font": "default_font",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#601a24"
+    }
+  ],
+  "lastModified": "2026-01-21T18:28:26.530440"
+}

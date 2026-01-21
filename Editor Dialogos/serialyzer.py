@@ -2,7 +2,6 @@ import json
 import os
 from datetime import datetime
 from tkinter import filedialog, messagebox, simpledialog
-from panels.defs import Digraph
 
 class Serialyzer:
     def __init__(self, nodesTab, charactersTab):
@@ -266,186 +265,167 @@ class Serialyzer:
             }
 
     def _serialize_dialogues(self):
-        try:
-            Dialogue_graph = self.nodesTab.canvas_container.graph
-        except (KeyError, AttributeError):
-            return {"Dialogues": [], "LastModified": datetime.now().isoformat()}
-
-        # Cogemos la info
-        nodes = list(canvas.obj_list)
-        line_list = list(canvas.line_list)
-        socket_to_node = {}
-        nodes_by_id = {} # Diccionario [id_nodo] objeto_nodo
-
-        for node in nodes:
-            node_id = id(node)
-            nodes_by_id[node_id] = node
-
-            # Registrar sockets de entrada
-            if hasattr(node, 'input_1'):
-                socket_to_node[node.input_1.socket_num] = node
-            # Registrar sockets de salida (normales y de decision)
-            if hasattr(node, 'output_') and node.output_:
-                socket_to_node[node.output_.socket_num] = node
-            if hasattr(node, 'outputs'):
-                for out in node.outputs:
-                    socket_to_node[out.socket_num] = node
-
-        # CONSTRUCCION DEL GRAFO
-        grafo = Digraph()
-        for out_id, in_id in line_list:
-            n_origen = socket_to_node.get(out_id)
-            n_destino = socket_to_node.get(in_id)
-            if n_origen and n_destino:
-                grafo.add_edge(id(n_origen), id(n_destino))
-
-        # VALIDACION DE CICLOS
-        if grafo.check_cycles():
-            messagebox.showerror("Error de Logica", 
-                "Se ha detectado un bucle infinito. El dialogo no puede exportarse asi.")
-            return None
-
+        '''
+        Convierte los nodos de dialogo en un diccionario para exportar¡
+        '''
+        nodes = self.nodesTab.canvas_container.nodes
+        dialogue_idx = -1
         # RECORRIDO Y CONSTRUCCION DE JSON
         dialogues_output = []
         start_nodes = [n for n in nodes if getattr(n, 'type', '') == "START"]
 
-
-
-        for start_idx, start_node in enumerate(start_nodes):
-            dialogue_entry = {"DialogueID": start_idx, "Texts": []}
+        for startnode in start_nodes:
+            dialogue_idx += 1
+            dialogue_entry = {
+                "DialogueID": dialogue_idx,
+                "Texts": []
+                }
+            
+            # Recorrido en profundidad desde el nodo Start
             visited = set()
 
-            # Usamos DFS simple para recolectar los textos del camino
-            stack = [start_node]
-            while stack:
-                current = stack.pop()
-                curr_ptr = id(current)
+            def dfs(node):
+                if node.node_id in visited:
+                    return
+                visited.add(node.node_id)
 
-                if curr_ptr in visited: continue
-                visited.add(curr_ptr)
+                text_entry = {
+                    "ID": node.node_id,
+                    "Type": node.type,
+                    "Character": getattr(node, 'character', ''),
+                    "Next": None
+                }
 
                 # Procesar el nodo segun su tipo
-                n_type = getattr(current, 'type', 'Unknown')
-                if n_type == "DIALOGO":
-                    dialogue_entry["Texts"].append(self._create_text_entry(current))
+                n_type = getattr(node, 'type', 'Unknown')
+                if n_type in ["START", "DIALOGUE", "END"]:
+                    if hasattr(node, 'text'):
+                        text_entry["Text"] = node.text.get("1.0", "end-1c") # Si es un CTkTextbox
+
+                    # El "Next" es el ID del primer target en output_connections
+                    if node.output_connections:
+                        text_entry["Next"] = node.output_connections[0]['target'].node_id
                 elif n_type == "DECISION":
-                    dialogue_entry["Texts"].extend(self._create_decision_entries(current))
-                elif n_type == "EVENTO":
-                    dialogue_entry["Texts"].append(self._create_event_entry(current))
-                elif n_type == "END":
-                    continue # El fin no anyade texto
+                    text_entry["Text"] = node.question_text.get("1.0", "end-1c")
+                    #opciones
+                    text_entry["Options"] = []
+                    for i, option in enumerate(node.options):
+                        option_data = {
+                            "Text": option['entry'].get(),
+                            "Next": None
+                        }
+                        # Si tienes una lógica donde la conexión i corresponde a la opción i:
+                        if i < len(node.output_connections):
+                            option_data["Next"] = node.output_connections[i]['target'].node_id
 
-                # Obtener hijos desde el grafo para seguir el camino
-                hijos_ids = grafo.addys.get(curr_ptr, [])
-                for h_id in hijos_ids:
-                    stack.append(nodes_by_id[h_id])
+                        text_entry["Options"].append(option_data)
+                #elif n_type == "EVENTO":
+                #    text_entry["Events"].append(self._create_event_entry(node))
+                else:
+                    print(f"Tipo de nodo desconocido durante serializacion: {n_type}")
+                
+                # Anyade la entrada al dialogo
+                dialogue_entry["Texts"].append(text_entry)
 
-            if dialogue_entry["Texts"]:
-                dialogues_output.append(dialogue_entry)
+                # Recorre las conexiones
+                for conn in getattr(node, 'output_connections', []):
+                    dfs(conn['target'])
+            
+            # Iniciar DFS desde el nodo Start
+            dfs(startnode)
+            
+            # Anyade el dialogo completo al output
+            dialogues_output.append(dialogue_entry)
 
         return {
             "Dialogues": dialogues_output,
-            "LastModified": datetime.now().isoformat(),
-            "Version": "1.0"
+            "LastModified": datetime.now().isoformat()
         }
-
-    def _create_text_entry(self, node):
-        '''
-        Crea una entrada de texto desde un NodeDialogue
-        '''
-        from panels.defs import characters
-        
-        char = ""
-        if hasattr(node, 'character') and node.character:
-            try:
-                char = node.character.name
-            except ValueError:
-                char = ""
-        
-        text = ""
-        if hasattr(node, 'textbox'):
-            try:
-                text = node.textbox.get("0.0", "end").strip()
-            except:
-                text = ""
-        
-        return {
-            "Person": char,
-            "Emotion": "neutral",
-            "Text": text,
-            "Callbacks": [],
-            "Type": "dialogue"
-        }
-
-    def _create_decision_entries(self, node):
-        '''
-        Crea entradas de texto desde un NodeDecision
-        '''
-        entries = []
-        
-        # Agregar la pregunta
-        question = ""
-        if hasattr(node, 'question_textbox'):
-            try:
-                question = node.question_textbox.get("0.0", "end").strip()
-            except:
-                question = ""
-        
-        entries.append({
-            "Person": -1,
-            "Emotion": "neutral",
-            "Text": question,
-            "Callbacks": [],
-            "Type": "decision_question"
-        })
-        
-        # Agregar cada opcion
-        if hasattr(node, 'option_textboxes') and hasattr(node, 'num_options'):
-            for i in range(min(node.num_options, len(node.option_textboxes))):
-                textbox = node.option_textboxes[i]
-                if textbox:
-                    try:
-                        option_text = textbox.get("0.0", "end").strip()
-                    except:
-                        option_text = ""
-                    
-                    entries.append({
-                        "Person": -1,
-                        "Emotion": "neutral",
-                        "Text": option_text,
-                        "OptionIndex": i,
-                        "Callbacks": [],
-                        "Type": "decision_option"
-                    })
-        
-        return entries
-
-    def _create_event_entry(self, node):
-        '''
-        Crea una entrada de evento desde un NodeEvent
-        '''
-        text = ""
-        event_name = ""
-        
-        if hasattr(node, 'textbox'):
-            try:
-                text = node.textbox.get("0.0", "end").strip()
-            except:
-                text = ""
-        
-        if hasattr(node, 'event_entry'):
-            try:
-                event_name = node.event_entry.get()
-            except:
-                event_name = ""
-        
-        return {
-            "Person": -1,
-            "Emotion": "neutral",
-            "Text": text,
-            "Event": event_name,
-            "Callbacks": [],
-            "Type": "event"
-        }
-    
     # ============ CARGADO =============
+
+    def load_characters(self, filepath):
+        '''
+        Carga personajes desde un archivo JSON
+        '''
+        pass
+
+    def load_dialogues(self, data):
+        '''
+        Carga dialogos desde un archivo JSON
+        '''
+        # Mapa para relacionar ID del JSON -> Instancia del Objeto Nodo
+        id_map = {}
+
+        from panels.custom_node_types import StartNode, EndNode, DialogueNode, DecisionNode, ActionNode
+        # Diccionario para mapear strings a clases
+        node_classes = {
+            "START": StartNode,
+            "END": EndNode,
+            "DIALOGUE": DialogueNode,
+            "DECISION": DecisionNode,
+            "ACTION": ActionNode
+        }
+
+        # --- PRIMERA PASADA: Crear Nodos ---
+        current_x = 100
+        current_y = 100
+
+        for dialogue in data.get("Dialogues", []):
+            for entry in dialogue.get("Texts", []):
+                n_type = entry["Type"].upper()
+                n_class = node_classes.get(n_type, DialogueNode)
+
+                # Crear instancia
+                new_node = n_class(
+                    self.nodesTab.canvas_container.canvas, 
+                    x=current_x, 
+                    y=current_y
+                )
+
+                # Restaurar texto (identificando si es Textbox o Entry)
+                if hasattr(new_node, 'text'):
+                    new_node.text.insert("1.0", entry.get("Text", ""))
+                elif hasattr(new_node, 'question_text'):
+                    new_node.question_text.insert("1.0", entry.get("Text", ""))
+
+                # Configurar personaje
+                new_node.character = entry.get("Character", "")
+
+                # Registrar en nuestro mapa de IDs
+                id_map[entry["ID"]] = new_node
+
+                # Desplazamiento visual simple para que no se solapen
+                current_x += 250
+                if current_x > 1000:
+                    current_x = 100
+                    current_y += 200
+
+        # --- SEGUNDA PASADA: Crear Conexiones ---
+        for dialogue in data.get("Dialogues", []):
+            for entry in dialogue.get("Texts", []):
+                source_node = id_map.get(entry["ID"])
+                if not source_node: continue
+
+                # Conexión simple (Next)
+                if entry.get("Next") is not None:
+                    target_node = id_map.get(entry["Next"])
+                    if target_node:
+                        source_node.connect_to(target_node, option_index=0)
+
+                # Conexiones de Decisión (Options)
+                if "Options" in entry:
+                    # Primero vaciamos las opciones por defecto que crea el nodo
+                    # (Opcional, según cómo funcione tu add_option)
+                    for i, opt_data in enumerate(entry["Options"]):
+                        # Si el nodo no tiene suficientes opciones creadas, las añadimos
+                        if i >= len(source_node.options):
+                            source_node.add_option(opt_data["Text"])
+                        else:
+                            source_node.options[i]['entry'].delete(0, "end")
+                            source_node.options[i]['entry'].insert(0, opt_data["Text"])
+
+                        # Conectar cada opción a su destino
+                        if opt_data.get("Next") is not None:
+                            target_node = id_map.get(opt_data["Next"])
+                            if target_node:
+                                source_node.connect_to(target_node, option_index=i)
