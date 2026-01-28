@@ -3,11 +3,11 @@ characters = {}
 
 class character:
     def __init__(self, name="Character", color="#ffffff", font="", 
-    sounds=[]):
+    sounds=None):
         self.name = name
         self.color = color
         self.font = font
-        self.sounds = sounds
+        self.sounds =  sounds if sounds is not None else {}
 
 import csv
 from tkinter import Canvas, Menu

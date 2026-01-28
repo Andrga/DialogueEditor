@@ -4,59 +4,33 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, simpledialog
 
 class Serialyzer:
-    def __init__(self, nodeEditor, charactersEditor):
+    def __init__(self, nodeEditor, charactersEditor, translationEditor):
         self.nodeEditor = nodeEditor
         self.charactersEditor = charactersEditor
+        self.translationEditor = translationEditor
 
     def choose_save_directory(self):
         '''
         Abre un cuadro de dialogo para elegir un directorio,
         pide un nombre al usuario y crea una carpeta nueva
         '''
-        # Seleccionar directorio base
-        
-        initialdir="./projects"
-        # Crear la carpeta si no existe
-        if not os.path.exists(initialdir):
-            os.makedirs(initialdir)
-            print(f"Carpeta creada: {initialdir}")
-        directory = filedialog.askdirectory(
-            title="Seleccionar carpeta donde crear el proyecto",
-            initialdir=initialdir
+        base = "./projects"
+        os.makedirs(base, exist_ok=True)
+
+        path = filedialog.asksaveasfilename(
+            title="Crear proyecto",
+            initialdir=base,
+            initialfile="mi_proyecto"
         )
 
-        if not directory:
+        if not path:
             return None
-
-        # Pedir nombre de la carpeta al usuario
-        folder_name = simpledialog.askstring(
-            "Editor de Dialogos",
-            "Ingrese el nombre para la carpeta del proyecto:",
-            initialvalue="mi_proyecto"
-        )
-
-        if not folder_name:
-            return None
-
-        # Crear la ruta completa de la nueva carpeta
-        new_folder_path = os.path.join(directory, folder_name)
 
         try:
             # Crear la carpeta si no existe
-            if not os.path.exists(new_folder_path):
-                os.makedirs(new_folder_path)
-                print(f"Carpeta creada: {new_folder_path}")
-            else:
-                # Si ya existe, preguntar si desea sobrescribir
-                overwrite = messagebox.askyesno(
-                    "Carpeta existente",
-                    f"La carpeta '{folder_name}' ya existe.\n¿Desea usar esta carpeta de todos modos?"
-                )
-                if not overwrite:
-                    return None
-
-            return new_folder_path, folder_name
-
+            os.makedirs(path, exist_ok=True)
+            name = os.path.basename(path)
+            return path, name
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo crear la carpeta:\n{str(e)}")
             return None
@@ -79,6 +53,11 @@ class Serialyzer:
             with open(dialogues_path, 'w', encoding='utf-8') as f:
                 json.dump(dialogues_data, f, ensure_ascii=False, indent=2)
 
+            # Serializar traducciones
+            if self.translationEditor:
+                translations_path = os.path.join(directory, f"{filename}_translations.csv")
+                self.translationEditor.table.export_csv(translations_path)
+            
             messagebox.showinfo("Exito", f"Proyecto guardado correctamente en:\n{directory}")
 
         except Exception as e:
@@ -102,6 +81,7 @@ class Serialyzer:
             # === CARGAR PERSONAJES ===
             characters_path = None
             dialogues_path = None
+            translations_path = None
 
             # Buscar archivos en el directorio
             for file in os.listdir(directory):
@@ -109,6 +89,8 @@ class Serialyzer:
                     characters_path = os.path.join(directory, file)
                 elif file.endswith('_dialogues.json'):
                     dialogues_path = os.path.join(directory, file)
+                elif file.endswith('_translations.csv'):
+                    translations_path = os.path.join(directory, file)
 
             if not characters_path or not dialogues_path:
                 messagebox.showerror("Error", "No se encontraron los archivos del proyecto")
@@ -136,6 +118,13 @@ class Serialyzer:
 
             # Cargar dialogos
             self.load_dialogues(dialogues_data)
+
+            # === CARGAR TRADUCCIONES ===
+            if self.translationEditor:
+                translation_table = self.translationEditor.table
+                if translations_path and os.path.exists(translations_path):
+                    translation_table.import_csv(translations_path)
+                    self.translationEditor.refresh()
 
             messagebox.showinfo("Exito", f"Proyecto cargado correctamente desde:\n{directory}")
 

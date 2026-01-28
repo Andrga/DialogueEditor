@@ -7,42 +7,42 @@
           "ID": 2,
           "Type": "START",
           "Character": "Masca",
-          "Next": 4,
-          "Text": "HOLA"
+          "Next": 3,
+          "Text": "DIALOGO_1"
         },
         {
-          "ID": 4,
+          "ID": 3,
           "Type": "DECISION",
-          "Character": "",
+          "Character": "Ronda",
           "Next": null,
-          "Text": "Pregunta",
+          "Text": "PREGUNTA",
           "Options": [
             {
-              "Text": "Si",
-              "Next": 6
+              "Text": "RESPUESTA_1",
+              "Next": 4
             },
             {
-              "Text": "No",
-              "Next": 3
+              "Text": "RESPUESTA_2",
+              "Next": 5
             }
           ]
         },
         {
-          "ID": 6,
+          "ID": 4,
           "Type": "DIALOGUE",
-          "Character": "",
-          "Next": 3,
-          "Text": "Dialogo"
+          "Character": "Masca",
+          "Next": 5,
+          "Text": "DIALOGO_2"
         },
         {
-          "ID": 3,
+          "ID": 5,
           "Type": "END",
           "Character": "Ronda",
           "Next": null,
-          "Text": "cui c mea **"
+          "Text": "DIALOGO_3"
         }
       ]
     }
   ],
-  "LastModified": "2026-01-28T11:39:18.109674"
+  "LastModified": "2026-01-28T22:53:47.038562"
 }

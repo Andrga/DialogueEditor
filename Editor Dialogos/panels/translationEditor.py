@@ -18,8 +18,8 @@ class TranslationEditor(CTkFrame):
         top = ctk.CTkFrame(self)
         top.pack(fill=X, pady=5)
 
-        ctk.CTkButton(top, text="+ Idioma", command=self.add_language).pack(side=LEFT, padx=5)
-        ctk.CTkButton(top, text="+ Clave", command=self.add_key).pack(side=LEFT, padx=5)
+        ctk.CTkButton(top, text="+ Idioma", fg_color="#B69436", hover_color="#9B7A2D", command=self.add_language).pack(side=LEFT, padx=5)
+        ctk.CTkButton(top, text="+ Clave", fg_color="#5AB636", hover_color="#4A9E2D", command=self.add_key).pack(side=LEFT, padx=5)
         ctk.CTkButton(top, text="Web Nomenclatura idiomas", fg_color="#A95A4B", hover_color="#8B4513", command=lambda: webbrowser.open("https://es.wikipedia.org/wiki/ISO_639-1")).pack(side=LEFT, padx=5)
         ctk.CTkButton(top, text="Import CSV", command=self.import_csv).pack(side=RIGHT, padx=5)
         ctk.CTkButton(top, text="Export CSV", command=self.export_csv).pack(side=RIGHT, padx=5)
@@ -82,12 +82,14 @@ class TranslationEditor(CTkFrame):
     def add_language(self):
         lang = ctk.CTkInputDialog(text="Idioma:", title="Nuevo idioma").get_input()
         if lang:
+            self.save()
             self.table.add_language(lang.strip().lower())
             self.refresh()
 
     def add_key(self):
         key = ctk.CTkInputDialog(text="Clave:", title="Nueva clave").get_input()
         if key:
+            self.save()
             self.table.add_key(key.strip().upper())
             self.refresh()
 

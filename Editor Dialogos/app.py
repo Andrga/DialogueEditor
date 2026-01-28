@@ -6,7 +6,7 @@ from CTkMenuBarPlus import CTkMenuBar, CustomDropdownMenu
 import ctypes, os
 from serialyzer import Serialyzer
 # Frames
-from panels.MiscelaneousEditor import TranslationEditor
+from panels.translationEditor import TranslationEditor
 from panels.nodeEditor import NodeEditorFrame
 from panels.charactersEditor import CharacterEditorFrame
 
@@ -73,7 +73,7 @@ class App(ctk.CTk):
         translationTab.pack(fill='both', expand=True)
 
         # serializador
-        self.seryalizer = Serialyzer(nodeEditor=nodeEditorFrame, charactersEditor=characterEditorFrame)
+        self.seryalizer = Serialyzer(nodeEditor=nodeEditorFrame, charactersEditor=characterEditorFrame, translationEditor=translationTab)
         self.mainloop()
 
     def _set_ui(self):
