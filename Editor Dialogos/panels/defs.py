@@ -180,6 +180,14 @@ class GridCanvas(ctk.CTkFrame):
             self.nodes.append(node)
         return node
     
+    def clear_canvas(self):
+        '''
+        Limpia todos los nodos del canvas
+        '''
+        # Eliminar todos los nodos uno por uno
+        while len(self.nodes) > 0:
+            self.nodes[0].delete_node()
+
 class nodeBase(ctk.CTkFrame):
     '''
     Clase base para frames arrastrables en el canvas
@@ -279,7 +287,7 @@ class nodeBase(ctk.CTkFrame):
         '''
         Elimina este nodo del canvas
         '''
-        #print("Deleting node")
+        print("Deleting node")
         # Eliminar de la lista de nodos del canvas
         if self in self.canvasGrid.nodes:
             self.canvasGrid.nodes.remove(self)

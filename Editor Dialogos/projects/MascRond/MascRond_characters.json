@@ -1,19 +1,6 @@
 {
   "characters": [
     {
-      "name": "Ronda",
-      "font": "default_font",
-      "sounds": {
-        "neutral": [],
-        "happy": [],
-        "sad": [],
-        "angry": [],
-        "surprised": [],
-        "suspicious": []
-      },
-      "Color": "#ffe024"
-    },
-    {
       "name": "Masca",
       "font": "default_font",
       "sounds": {
@@ -24,8 +11,21 @@
         "surprised": [],
         "suspicious": []
       },
-      "Color": "#601a24"
+      "Color": "#722920"
+    },
+    {
+      "name": "Ronda",
+      "font": "default_font",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#ff5f03"
     }
   ],
-  "lastModified": "2026-01-21T18:28:26.530440"
+  "lastModified": "2026-01-28T09:26:10.213903"
 }

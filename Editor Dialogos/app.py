@@ -73,7 +73,7 @@ class App(ctk.CTk):
         miscelaneousTab.pack(fill='both', expand=True)
 
         # serializador
-        self.seryalizer = Serialyzer(nodesTab=nodeEditorFrame, charactersTab=self.charactersTab)
+        self.seryalizer = Serialyzer(nodeEditor=nodeEditorFrame, charactersEditor=characterEditorFrame)
         self.mainloop()
 
     def _set_ui(self):

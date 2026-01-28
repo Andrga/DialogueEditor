@@ -4,9 +4,9 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, simpledialog
 
 class Serialyzer:
-    def __init__(self, nodesTab, charactersTab):
-        self.nodesTab = nodesTab
-        self.charactersTab = charactersTab
+    def __init__(self, nodeEditor, charactersEditor):
+        self.nodeEditor = nodeEditor
+        self.charactersEditor = charactersEditor
 
     def choose_save_directory(self):
         '''
@@ -89,8 +89,6 @@ class Serialyzer:
         '''
         Carga un proyecto guardado desde archivos JSON
         '''
-        from panels.defs import characters, character
-
         # Seleccionar directorio
         directory = filedialog.askdirectory(
             title="Seleccionar carpeta del proyecto",
@@ -116,109 +114,28 @@ class Serialyzer:
                 messagebox.showerror("Error", "No se encontraron los archivos del proyecto")
                 return
 
-            # Cargar personajes
+            #  === CARGAR PERSONAJES ===
             with open(characters_path, 'r', encoding='utf-8') as f:
                 characters_data = json.load(f)
 
-            # Limpiar y recargar personajes
-            characters.clear()
-            for char_info in characters_data.get('characters', []):
-                characters[char_info['name']] = character(
-                    name=char_info['name'],
-                    color=char_info.get('Color', '#ffffff')
-                )
-
-            # Actualizar UI de personajes
+            self.load_characters(characters_data)
+            
+            # Acceder al canvas
             try:
-                char_editor = self.charactersTab.children.get('!charactereditorframe')
-                if char_editor:
-                    char_editor.refresh_character_list()
-            except Exception as e:
-                print(f"No se pudo actualizar editor de personajes: {e}")
+                if self.nodeEditor:
+                    canvas = self.nodeEditor.canvas_container
+            except (KeyError, AttributeError) as e:
+                messagebox.showerror("Error", f"No se pudo acceder al canvas: {e}")
+                return
+            # === LIMPIAR CANVAS ===
+            canvas.clear_canvas()
 
             # === CARGAR DIALOGOS ===
             with open(dialogues_path, 'r', encoding='utf-8') as f:
                 dialogues_data = json.load(f)
 
-            # Acceder al canvas
-            try:
-                node_editor_frame = self.nodesTab.children['!nodeeditorframe']
-                canvas = node_editor_frame.canvas
-            except (KeyError, AttributeError) as e:
-                messagebox.showerror("Error", f"No se pudo acceder al canvas: {e}")
-                return
-
-            # === LIMPIAR CANVAS ===
-            canvas.clear()
-
-            # === CREAR NODOS ===
-            from panels.custom_node_types import NodeStart, NodeEnd
-            dialogues = dialogues_data.get('Dialogues', [])
-
-            for dialogue_idx, dialogue in enumerate(dialogues):
-                # Posicion inicial para esta rama
-                start_y = 100 + (dialogue_idx * 600)
-                current_x = 100
-                x_spacing = 300
-
-                # Crear nodo START
-                start_node = NodeStart(canvas, x=current_x, y=start_y)
-                current_x += x_spacing
-
-                previous_node = start_node
-                previous_output = start_node.output_
-
-                # Procesar cada texto
-                texts = dialogue.get('Texts', [])
-                i = 0
-                while i < len(texts):
-                    text_entry = texts[i]
-                    text_type = text_entry.get('Type', '')
-
-                    if text_type == 'dialogue':
-                        # Crear nodo de dialogo
-                        node = self._create_dialogue_node(canvas, current_x, start_y, text_entry)
-                        #self._connect_nodes(canvas, previous_output, node.input_1)
-
-                        previous_node = node
-                        previous_output = node.output_
-                        current_x += x_spacing
-                        i += 1
-
-                    elif text_type == 'decision_question':
-                        # Recopilar opciones de decision
-                        options = []
-                        j = i + 1
-                        while j < len(texts) and texts[j].get('Type') == 'decision_option':
-                            options.append(texts[j])
-                            j += 1
-
-                        # Crear nodo de decision
-                        node = self._create_decision_node(canvas, current_x, start_y, text_entry, options)
-                        self._connect_nodes(canvas, previous_output, node.input_1)
-
-                        previous_node = node
-                        previous_output = node.outputs[0] if node.outputs else None
-                        current_x += x_spacing
-                        i = j  # Saltar las opciones procesadas
-
-                    elif text_type == 'event':
-                        # Crear nodo de evento
-                        node = self._create_event_node(canvas, current_x, start_y, text_entry)
-                        self._connect_nodes(canvas, previous_output, node.input_1)
-
-                        previous_node = node
-                        previous_output = node.output_
-                        current_x += x_spacing
-                        i += 1
-
-                    else:
-                        i += 1
-
-                # Crear nodo END
-                end_node = NodeEnd(canvas, x=current_x, y=start_y)
-                #if previous_output:
-                #    self._connect_nodes(canvas, previous_output, end_node.input_1)
+            # Cargar dialogos
+            self.load_dialogues(dialogues_data)
 
             messagebox.showinfo("Exito", f"Proyecto cargado correctamente desde:\n{directory}")
 
@@ -240,11 +157,10 @@ class Serialyzer:
         '''
         from panels.defs import characters
 
-        serialized_chars = []
+        serialized_chars = {}
         # Recorremos todos los personajes
         for name, obj in characters.items():
             char = {
-                "name": name,
                 "font":obj.font or "default_font",
                 "sounds":{
                     "neutral": [],
@@ -257,7 +173,7 @@ class Serialyzer:
                 "Color": obj.color
             }
 
-            serialized_chars.append(char)
+            serialized_chars[name] = char
         
         return {
         "characters": serialized_chars,
@@ -268,7 +184,7 @@ class Serialyzer:
         '''
         Convierte los nodos de dialogo en un diccionario para exportar¡
         '''
-        nodes = self.nodesTab.canvas_container.nodes
+        nodes = self.nodeEditor.canvas_container.nodes
         dialogue_idx = -1
         # RECORRIDO Y CONSTRUCCION DE JSON
         dialogues_output = []
@@ -292,7 +208,7 @@ class Serialyzer:
                 text_entry = {
                     "ID": node.node_id,
                     "Type": node.type,
-                    "Character": getattr(node, 'character', ''),
+                    "Character": getattr(node, 'character', '').name if hasattr(node, 'character') and node.character else "",
                     "Next": None
                 }
 
@@ -314,7 +230,7 @@ class Serialyzer:
                             "Text": option['entry'].get(),
                             "Next": None
                         }
-                        # Si tienes una lógica donde la conexión i corresponde a la opción i:
+                        # Si tienes una logica donde la conexion i corresponde a la opcion i:
                         if i < len(node.output_connections):
                             option_data["Next"] = node.output_connections[i]['target'].node_id
 
@@ -343,10 +259,25 @@ class Serialyzer:
         }
     # ============ CARGADO =============
 
-    def load_characters(self, filepath):
+    def load_characters(self, characters_data):
         '''
         Carga personajes desde un archivo JSON
         '''
+        from panels.defs import characters, character
+        # Limpiar y recargar personajes
+        characters.clear()
+        for name, char_info in characters_data.get('characters', {}).items():
+            characters[name] = character(
+                name=name,
+                color=char_info.get('Color', '#ffffff')
+            )
+        # Actualizar UI de personajes
+        try:
+            if self.charactersEditor:
+                self.charactersEditor.refresh_character_list()
+        except Exception as e:
+            print(f"No se pudo actualizar editor de personajes: {e}")
+
         pass
 
     def load_dialogues(self, data):
@@ -357,6 +288,7 @@ class Serialyzer:
         id_map = {}
 
         from panels.custom_node_types import StartNode, EndNode, DialogueNode, DecisionNode, ActionNode
+        #print("Cargando dialogos desde JSON...")
         # Diccionario para mapear strings a clases
         node_classes = {
             "START": StartNode,
@@ -369,7 +301,7 @@ class Serialyzer:
         # --- PRIMERA PASADA: Crear Nodos ---
         current_x = 100
         current_y = 100
-
+        #print("Iniciando carga de dialogos...")
         for dialogue in data.get("Dialogues", []):
             for entry in dialogue.get("Texts", []):
                 n_type = entry["Type"].upper()
@@ -377,25 +309,40 @@ class Serialyzer:
 
                 # Crear instancia
                 new_node = n_class(
-                    self.nodesTab.canvas_container.canvas, 
+                    self.nodeEditor.canvas_container, 
                     x=current_x, 
                     y=current_y
                 )
-
+                
                 # Restaurar texto (identificando si es Textbox o Entry)
                 if hasattr(new_node, 'text'):
                     new_node.text.insert("1.0", entry.get("Text", ""))
                 elif hasattr(new_node, 'question_text'):
                     new_node.question_text.insert("1.0", entry.get("Text", ""))
-
+                    
                 # Configurar personaje
-                new_node.character = entry.get("Character", "")
+                from panels.defs import characters
+                new_node.set_character(characters.get(entry.get("Character", ""), None))
 
+                if n_type == "DECISION" and "Options" in entry:
+                    # Limpiar opciones por defecto
+                    while len(new_node.options) > 0:
+                        new_node.remove_option(0)
+
+                    # Forzar limpieza visual
+                    new_node.update_idletasks()
+
+                    # Crear las opciones del JSON inmediatamente
+                    for opt_data in entry["Options"]:
+                        new_node.add_option(opt_data["Text"], immediate=True)
+                
                 # Registrar en nuestro mapa de IDs
                 id_map[entry["ID"]] = new_node
+                # Agregar al canvas
+                self.nodeEditor.canvas_container.add_node(new_node)
 
                 # Desplazamiento visual simple para que no se solapen
-                current_x += 250
+                current_x += 300
                 if current_x > 1000:
                     current_x = 100
                     current_y += 200
@@ -406,26 +353,19 @@ class Serialyzer:
                 source_node = id_map.get(entry["ID"])
                 if not source_node: continue
 
-                # Conexión simple (Next)
+                # Conexion simple (Next)
                 if entry.get("Next") is not None:
                     target_node = id_map.get(entry["Next"])
-                    if target_node:
-                        source_node.connect_to(target_node, option_index=0)
+                    if target_node is not None:
+                        print(f"Conectando nodo ID {entry['ID']} al nodo ID {entry['Next']}")
+                        source_node.connect_to(target_node)
 
-                # Conexiones de Decisión (Options)
+                # Conexiones de Decision (Options)
                 if "Options" in entry:
-                    # Primero vaciamos las opciones por defecto que crea el nodo
-                    # (Opcional, según cómo funcione tu add_option)
+                    # Crear las opciones del JSON
                     for i, opt_data in enumerate(entry["Options"]):
-                        # Si el nodo no tiene suficientes opciones creadas, las añadimos
-                        if i >= len(source_node.options):
-                            source_node.add_option(opt_data["Text"])
-                        else:
-                            source_node.options[i]['entry'].delete(0, "end")
-                            source_node.options[i]['entry'].insert(0, opt_data["Text"])
-
-                        # Conectar cada opción a su destino
+                        # Conectar cada opcion a su destino
                         if opt_data.get("Next") is not None:
                             target_node = id_map.get(opt_data["Next"])
                             if target_node:
-                                source_node.connect_to(target_node, option_index=i)
+                                source_node.connect_to(target_node=target_node, option_index=i) 

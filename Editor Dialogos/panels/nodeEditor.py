@@ -1,8 +1,7 @@
 import tkinter as ttk
 import customtkinter as ctk
-from customtkinter import CTkFrame, CTkButton, CTkLabel
-from tknodesystem import NodeCanvas, NodeMenu
-from panels.custom_node_types import ConnectableNode, StartNode, EndNode, DialogueNode, DecisionNode, ActionNode
+from customtkinter import CTkFrame
+from panels.custom_node_types import StartNode, EndNode, DialogueNode, DecisionNode, ActionNode, ConditionNode
 from panels.defs import GridCanvas
 
 
@@ -26,6 +25,7 @@ class NodeEditorFrame(CTkFrame):
         self.canvas_container.register_node_type("EndNode", EndNode)
         self.canvas_container.register_node_type("DialogueNode", DialogueNode)
         self.canvas_container.register_node_type("DecisionNode", DecisionNode)
+        self.canvas_container.register_node_type("ConditionNode", ConditionNode)
         self.canvas_container.register_node_type("ActionNode", ActionNode)
 
         # Nodos default ?

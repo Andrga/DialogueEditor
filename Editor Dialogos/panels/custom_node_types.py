@@ -31,8 +31,9 @@ class ConnectableNode(nodeBase):
         # Menu contextual de personajes
         self.create_context_menu()
         self.title_bar.bind("<Button-3>", self.show_context_menu)
+        self.title_label.bind("<Button-3>", self.show_context_menu)
         # Crear conectores despues de que el frame este en el canvas
-        self.after(100, self.create_connectors)
+        self.create_connectors()
     
     def setup_content(self):
         # Contenido central
@@ -47,6 +48,7 @@ class ConnectableNode(nodeBase):
         '''
         Crea las bolitas de entrada y salida
         '''
+        print("Creando conectores para el nodo")
         # Obtener posicion del frame
         x, y = self.get_position()
         frame_height = self.winfo_height()
@@ -166,11 +168,21 @@ class ConnectableNode(nodeBase):
                 except:
                     pass
                 self.output_connections.remove(conn)
+        if not self.output_connector:
+            print("Error: No hay conectores.")
+            return
         
         # Crear linea de conexion permanente
+        print(f"Lista de conectores de salida: {self.output_connector}, usando indice {option_index}")
         out_coords = self.canvas.coords(self.output_connector[option_index])
+        if not out_coords or len(out_coords) < 4:
+            print(f"Error: Coordenadas invalidas para conector de salida del nodo origen {out_coords}")
+            return
         in_coords = self.canvas.coords(target_node.input_connector)
-        
+        if not in_coords or len(in_coords) < 4:
+            print(f"Error: Coordenadas invalidas para conector de entrada del nodo destino {in_coords}")
+            return
+            return
         out_x = (out_coords[0] + out_coords[2]) / 2
         out_y = (out_coords[1] + out_coords[3]) / 2
         in_x = (in_coords[0] + in_coords[2]) / 2
@@ -258,10 +270,10 @@ class ConnectableNode(nodeBase):
             
         # Actualizar conexiones de otros nodos que apuntan a este
         if hasattr(self, 'input_connections'):
-            for node in self.input_connections:
-                # Actualizar conexiones si existen
-                if hasattr(node, 'update_connections'):
-                    node.update_connections()
+            for conn in self.input_connections:
+                source_node = conn["source"]
+                if hasattr(source_node, 'update_connections'):
+                    source_node.update_connections()
 
         return dx, dy
     
@@ -269,6 +281,9 @@ class ConnectableNode(nodeBase):
         '''
         Asigna un personaje a este nodo
         '''
+        if character is None:
+            print("No se proporciono ningun personaje para asignar")
+            return
         # Guardar la referencia del objeto personaje
         self.character = character
         # Actualizar el titulo
@@ -374,10 +389,12 @@ class ConnectableNode(nodeBase):
                     except:
                         pass
                 if self.output_connector:
-                    try:
-                        self.canvas.delete(self.output_connector)
-                    except:
-                        pass
+                    for connector in self.output_connector:
+                        try:
+                            self.canvas.delete(connector)
+                        except:
+                            pass
+            print("Node deleted")
         except:
             pass
         
@@ -555,10 +572,12 @@ class DecisionNode(ConnectableNode):
         add_button.pack(pady=5)
         
         # Anyadir dos opciones por defecto
-        self.after(200, lambda: self.add_option("Si"))
-        self.after(250, lambda: self.add_option("No"))
+        # Forzamos a que el sistema de layouts calcule posiciones YA
+        self.update_idletasks() 
+        self.add_option("Si")
+        self.add_option("No")
     
-    def add_option(self, default_text=""):
+    def add_option(self, default_text="", immediate=False):
         '''
         Anyade una nueva opcion con su campo de texto y conector de salida
         '''
@@ -605,8 +624,13 @@ class DecisionNode(ConnectableNode):
         new_height = 200 + (len(self.options) * 35)
         self.configure(height=new_height)
         
-        # Crear el conector despues de un pequenyo delay
-        self.after(100, lambda: self.create_option_connector(option_index))
+        if immediate:
+            # Forzamos a que el sistema de layouts calcule posiciones YA
+            self.update_idletasks() 
+            self.create_option_connector(option_index)
+        else:
+            # Crear el conector despues de un pequenyo delay
+            self.after(100, lambda: self.create_option_connector(option_index))
     
     def remove_option(self, option_index):
         '''
@@ -616,32 +640,32 @@ class DecisionNode(ConnectableNode):
             return
         
         option = self.options[option_index]
-        
+        # Filtramos: nos quedamos con las que NO pertenecen a este indice
+        to_delete = [c for c in self.output_connections if c["option_index"] == option_index]
         # Eliminar conexiones asociadas
-        for conn in option['connections']:
+        for conn in to_delete:
             try:
-                self.canvas.delete(conn['line'])
-                # Limpiar referencia en nodo destino
-                if 'target' in conn and conn['target']:
-                    conn['target'].input_connections = [
-                        ic for ic in conn['target'].input_connections 
-                        if ic['line'] != conn['line']
-                    ]
-                    # Eliminar del grafo
-                    self.canvasGrid.graph.remove_edge(self, conn['target'])
+                self.canvas.delete(conn["line"])
+                # Limpiar referencia en el destino
+                target = conn["target"]
+                target.input_connections = [ic for ic in target.input_connections if ic["line"] != conn["line"]]
             except:
                 pass
+            self.output_connections.remove(conn)
         
+        # Si borras la opcion 1, la conexion de la opcion 2 debe bajar al indice 1
+        for conn in self.output_connections:
+            if conn["option_index"] > option_index:
+                conn["option_index"] -= 1
+
         # Eliminar conector visual
         if option['connector']:
-            try:
-                self.canvas.delete(option['connector'])
-            except:
-                pass
-        
+            self.canvas.delete(option['connector'])
+            if option['connector'] in self.output_connector:
+                self.output_connector.remove(option['connector'])
+
         # Eliminar el frame visual
-        option['frame'].destroy()
-        
+        option['frame'].destroy()        
         # Eliminar de la lista
         self.options.pop(option_index)
         
@@ -650,7 +674,7 @@ class DecisionNode(ConnectableNode):
         self.configure(height=new_height)
         
         # Recrear todos los conectores con las nuevas posiciones
-        self.after(100, self.recreate_all_connectors)
+        self.recreate_all_connectors()
     
     def create_option_connector(self, option_index):
         '''
@@ -696,13 +720,22 @@ class DecisionNode(ConnectableNode):
         '''
         Recrea todos los conectores de opciones con las posiciones actualizadas
         '''
+        # Limpiar lista de conectores
+        for connector_id in self.output_connector:
+            try:
+                self.canvas.delete(connector_id)
+            except:
+                pass
+    
+        self.output_connector.clear()
+        
         for i, option in enumerate(self.options):
             if option['connector']:
                 self.canvas.delete(option['connector'])
             self.create_option_connector(i)
             
         # Actualizar conexiones
-        self.update_all_option_connections()
+        self.update_connections()
     
     def create_connectors(self):
         '''
@@ -721,6 +754,9 @@ class DecisionNode(ConnectableNode):
             width=2,
             tags=("connector", "input", f"node_{id(self)}")
         )
+        # Asegurar que output_connector este inicializado como lista vacia
+        if not hasattr(self, 'output_connector') or not isinstance(self.output_connector, list):
+            self.output_connector = []   
     
 class ActionNode (ConnectableNode):
     '''    

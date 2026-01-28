@@ -1,0 +1,48 @@
+{
+  "Dialogues": [
+    {
+      "DialogueID": 0,
+      "Texts": [
+        {
+          "ID": 2,
+          "Type": "START",
+          "Character": "Masca",
+          "Next": 4,
+          "Text": "HOLA"
+        },
+        {
+          "ID": 4,
+          "Type": "DECISION",
+          "Character": "",
+          "Next": null,
+          "Text": "Pregunta",
+          "Options": [
+            {
+              "Text": "Si",
+              "Next": 6
+            },
+            {
+              "Text": "No",
+              "Next": 3
+            }
+          ]
+        },
+        {
+          "ID": 6,
+          "Type": "DIALOGUE",
+          "Character": "",
+          "Next": 3,
+          "Text": "Dialogo"
+        },
+        {
+          "ID": 3,
+          "Type": "END",
+          "Character": "Ronda",
+          "Next": null,
+          "Text": "cui c mea **"
+        }
+      ]
+    }
+  ],
+  "LastModified": "2026-01-28T11:39:18.109674"
+}
