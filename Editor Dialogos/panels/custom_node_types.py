@@ -777,3 +777,173 @@ class ActionNode (ConnectableNode):
             wrap="word"
         )
         self.text.pack(expand=True, pady=1)
+
+class ConditionNode(ConnectableNode):
+    '''
+    Nodo que espera a que se cumpla una condicion antes de continuar.
+    SIN TERMINAR, HAY QUE DARLE UNA VUELTA.
+    '''
+    
+    # Tipos de condiciones disponibles
+    CONDITION_TYPES = {
+        "variable_equals": "Variable es igual a",
+        "variable_greater": "Variable mayor que",
+        "variable_less": "Variable menor que",
+        "flag_true": "Bandera activada",
+        "flag_false": "Bandera desactivada",
+        "timer_elapsed": "Tiempo transcurrido",
+        "custom": "Condicion personalizada"
+    }
+    
+    def __init__(self, canvas, x, y, **kwargs):
+        self.condition_type = "flag_true"  # Tipo de condicion por defecto
+        self.condition_value = ""  # Valor de la condicion
+        self.condition_target = ""  # Objetivo (nombre de variable, flag, etc.)
+        
+        super().__init__(canvas, x, y, width=280, height=220, title="Condition", **kwargs)
+        self.type = "CONDITION"
+    
+    def setup_content(self):
+        # Label de descripcion
+        desc_label = ctk.CTkLabel(
+            self.content_frame,
+            text="Esperar hasta que:",
+            font=("Arial", 10, "bold")
+        )
+        desc_label.pack(anchor="w", padx=5, pady=(5, 0))
+        
+        # Dropdown para tipo de condicion
+        self.condition_type_var = ctk.StringVar(value="flag_true")
+        self.condition_dropdown = ctk.CTkOptionMenu(
+            self.content_frame,
+            variable=self.condition_type_var,
+            values=list(self.CONDITION_TYPES.values()),
+            width=260,
+            command=self.on_condition_type_changed
+        )
+        self.condition_dropdown.pack(padx=5, pady=5)
+        
+        # Frame para los campos de condicion
+        self.condition_fields_frame = ctk.CTkFrame(
+            self.content_frame,
+            fg_color="transparent"
+        )
+        self.condition_fields_frame.pack(fill="x", padx=5, pady=5)
+        
+        # Campo para el objetivo (variable, flag, etc.)
+        target_label = ctk.CTkLabel(
+            self.condition_fields_frame,
+            text="Nombre:",
+            font=("Arial", 9)
+        )
+        target_label.pack(anchor="w", padx=2)
+        
+        self.target_entry = ctk.CTkEntry(
+            self.condition_fields_frame,
+            width=260,
+            placeholder_text=""
+        )
+        self.target_entry.pack(padx=2, pady=2)
+        
+        # Frame para valor (se muestra/oculta segun el tipo)
+        self.value_frame = ctk.CTkFrame(
+            self.condition_fields_frame,
+            fg_color="transparent"
+        )
+        
+        value_label = ctk.CTkLabel(
+            self.value_frame,
+            text="Valor:",
+            font=("Arial", 9)
+        )
+        value_label.pack(anchor="w", padx=2)
+        
+        self.value_entry = ctk.CTkEntry(
+            self.value_frame,
+            width=260,
+            placeholder_text="ej: 100, true, sword"
+        )
+        self.value_entry.pack(padx=2, pady=2)
+        
+        # Mostrar/ocultar campo de valor segun tipo
+        self.update_condition_fields()
+        
+        # Separador
+        separator = ctk.CTkFrame(self.content_frame, height=2, fg_color="#444444")
+        separator.pack(fill="x", padx=5, pady=5)
+        
+        # Label informativo
+        info_label = ctk.CTkLabel(
+            self.content_frame,
+            text="El dialogo se pausara hasta que\nse cumpla esta condicion",
+            font=("Arial", 8),
+            text_color="#888888"
+        )
+        info_label.pack(pady=(0, 5))
+    
+    def on_condition_type_changed(self, selected_value):
+        '''Actualiza los campos cuando cambia el tipo de condicion'''
+        # Convertir el valor legible al codigo interno
+        for key, value in self.CONDITION_TYPES.items():
+            if value == selected_value:
+                self.condition_type = key
+                break
+        
+        self.update_condition_fields()
+    
+    def update_condition_fields(self):
+        '''Muestra u oculta campos segun el tipo de condicion'''
+        # Tipos que necesitan valor
+        needs_value = ["variable_equals", "variable_greater", "variable_less",
+                       "timer_elapsed", "custom"]
+        
+        if self.condition_type in needs_value:
+            self.value_frame.pack(fill="x", pady=2)
+        else:
+            self.value_frame.pack_forget()
+        
+        # Actualizar placeholders segun tipo
+        placeholders = {
+            "variable_equals": ("nombre_variable", "valor_esperado"),
+            "variable_greater": ("nombre_variable", "valor_minimo"),
+            "variable_less": ("nombre_variable", "valor_maximo"),
+            "flag_true": ("nombre_bandera", ""),
+            "flag_false": ("nombre_bandera", ""),
+            "timer_elapsed": ("nombre_timer", "segundos"),
+            "custom": ("expresion_completa", "")
+        }
+        
+        if self.condition_type in placeholders:
+            target_ph, value_ph = placeholders[self.condition_type]
+            self.target_entry.configure(placeholder_text=target_ph)
+            if value_ph:
+                self.value_entry.configure(placeholder_text=value_ph)
+    
+    def get_condition_data(self):
+        '''Retorna los datos de la condicion para exportar'''
+        return {
+            "type": self.condition_type,
+            "target": self.target_entry.get(),
+            "value": self.value_entry.get() if self.condition_type in [
+                "variable_equals", "variable_greater", "variable_less",
+                "item_in_inventory", "timer_elapsed", "custom"
+            ] else None
+        }
+    
+    def set_condition_data(self, condition_data):
+        '''Carga los datos de una condicion desde JSON'''
+        self.condition_type = condition_data.get("type", "flag_true")
+        
+        # Actualizar dropdown
+        readable_type = self.CONDITION_TYPES.get(self.condition_type, "Bandera activada")
+        self.condition_type_var.set(readable_type)
+        
+        # Actualizar campos
+        self.target_entry.delete(0, "end")
+        self.target_entry.insert(0, condition_data.get("target", ""))
+        
+        if condition_data.get("value"):
+            self.value_entry.delete(0, "end")
+            self.value_entry.insert(0, condition_data.get("value", ""))
+        
+        self.update_condition_fields()

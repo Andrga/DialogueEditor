@@ -6,7 +6,7 @@ from CTkMenuBarPlus import CTkMenuBar, CustomDropdownMenu
 import ctypes, os
 from serialyzer import Serialyzer
 # Frames
-from panels.MiscelaneousEditor import MiscelaneousEditor
+from panels.MiscelaneousEditor import TranslationEditor
 from panels.nodeEditor import NodeEditorFrame
 from panels.charactersEditor import CharacterEditorFrame
 
@@ -69,8 +69,8 @@ class App(ctk.CTk):
         characterEditorFrame.pack(fill='both', expand=True)
         # Editor de parametros extra (Ej: Botones de UI, imagenes con texto...)
         self.parametersTab = self.tabview.add("Parametros de juego")
-        miscelaneousTab = MiscelaneousEditor(self.parametersTab)
-        miscelaneousTab.pack(fill='both', expand=True)
+        translationTab = TranslationEditor(self.parametersTab)
+        translationTab.pack(fill='both', expand=True)
 
         # serializador
         self.seryalizer = Serialyzer(nodeEditor=nodeEditorFrame, charactersEditor=characterEditorFrame)

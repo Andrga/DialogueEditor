@@ -1,9 +1,5 @@
 # Variable global que almacena personajes
 characters = {}
-# Variable global que almacena textos extra
-miscelaneousTexts = {
-    "lenguajes" : ["default"]
-}
 
 class character:
     def __init__(self, name="Character", color="#ffffff", font="", 
@@ -13,6 +9,7 @@ class character:
         self.font = font
         self.sounds = sounds
 
+import csv
 from tkinter import Canvas, Menu
 import customtkinter as ctk
 
@@ -335,3 +332,55 @@ class nodeBase(ctk.CTkFrame):
         dy = y - current_y
         self.canvas.move(self.canvas_window, dx, dy)
         return dx, dy
+
+class TranslationTable:
+    def __init__(self):
+        self.languages = ["español"]
+        self.translations = {}
+
+    # ----- Idiomas -----
+    def add_language(self, lang):
+        if lang not in self.languages:
+            self.languages.append(lang)
+            for key in self.translations:
+                self.translations[key][lang] = ""
+
+    def remove_language(self, lang):
+        if lang in self.languages:
+            self.languages.remove(lang)
+            for key in self.translations:
+                self.translations[key].pop(lang, None)
+
+    # ----- Claves -----
+    def add_key(self, key):
+        if key not in self.translations:
+            self.translations[key] = {l: "" for l in self.languages}
+
+    def remove_key(self, key):
+        self.translations.pop(key, None)
+
+    # ----- Traducciones -----
+    def set(self, key, lang, text):
+        self.translations[key][lang] = text
+
+    def get(self, key, lang):
+        return self.translations.get(key, {}).get(lang, "")
+
+    # ----- CSV -----
+    def export_csv(self, path):
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["KEY"] + self.languages)
+            for key, values in self.translations.items():
+                writer.writerow([key] + [values[l] for l in self.languages])
+
+    def import_csv(self, path):
+        with open(path, encoding="utf-8") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            self.languages = header[1:]
+            self.translations = {
+                row[0]: {self.languages[i]: row[i+1] if i+1 < len(row) else ""
+                         for i in range(len(self.languages))}
+                for row in reader
+            }

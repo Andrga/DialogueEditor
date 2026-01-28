@@ -25,7 +25,7 @@ class NodeEditorFrame(CTkFrame):
         self.canvas_container.register_node_type("EndNode", EndNode)
         self.canvas_container.register_node_type("DialogueNode", DialogueNode)
         self.canvas_container.register_node_type("DecisionNode", DecisionNode)
-        self.canvas_container.register_node_type("ConditionNode", ConditionNode)
+        #self.canvas_container.register_node_type("ConditionNode", ConditionNode)
         self.canvas_container.register_node_type("ActionNode", ActionNode)
 
         # Nodos default ?
