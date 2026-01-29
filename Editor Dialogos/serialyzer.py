@@ -151,14 +151,7 @@ class Serialyzer:
         for name, obj in characters.items():
             char = {
                 "font":obj.font or "default_font",
-                "sounds":{
-                    "neutral": [],
-                    "happy": [],
-                    "sad": [],
-                    "angry": [],
-                    "surprised": [],
-                    "suspicious": []
-                },
+                "sound": obj.sound or None,
                 "Color": obj.color
             }
 
@@ -258,7 +251,9 @@ class Serialyzer:
         for name, char_info in characters_data.get('characters', {}).items():
             characters[name] = character(
                 name=name,
-                color=char_info.get('Color', '#ffffff')
+                color=char_info.get('Color', '#ffffff'),
+                sound=char_info.get('sound', 'Sin audio'),
+                font=char_info.get('font', 'Sin fuente')
             )
         # Actualizar UI de personajes
         try:

@@ -1,13 +1,14 @@
+from tkinter import colorchooser
 import customtkinter as ctk
 from tkinter import *
 from panels.defs import characters, character
-from CTkColorPicker import AskColor
 from customtkinter import CTkFrame
 from tkinter import messagebox
 
 class CharacterEditorFrame(CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, config_manager=None):
         super().__init__(master=master)
+        self.config_manager = config_manager
         # Configuramos el grid para que el panel izquierdo sea fijo y el derecho se expanda
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -95,23 +96,46 @@ class CharacterEditorFrame(CTkFrame):
         
         self.color_label = ctk.CTkLabel(self.color_frame, text="#ffffff", font=("Consolas", 12))
         self.color_label.pack(side="left", padx=10)
+        # Campos: Audio y Fuente
+        self._create_audio_font_ui()
+    
+    def _create_audio_font_ui(self):
+        self.audio_var = ctk.StringVar(value="Sin audio")
+        self.font_var = ctk.StringVar(value="Sin fuente")
+
+        ctk.CTkLabel(self.edit_area, text="Audio de voz").pack(anchor="w")
+        self.audio_dropdown = ctk.CTkOptionMenu(
+            self.edit_area,
+            variable=self.audio_var,
+            values=self._audio_options()
+        )
+        self.audio_dropdown.pack(fill="x", pady=(5, 15))
+
+        ctk.CTkLabel(self.edit_area, text="Fuente").pack(anchor="w")
+        self.font_dropdown = ctk.CTkOptionMenu(
+            self.edit_area,
+            variable=self.font_var,
+            values=self._font_options()
+        )
+        self.font_dropdown.pack(fill="x", pady=(5, 15))
+
+    def _audio_options(self):
+        return ["Sin audio"] + (self.config_manager.audio_files() if self.config_manager else [])
+
+    def _font_options(self):
+        return ["Sin fuente"] + (self.config_manager.font_files() if self.config_manager else [])
 
     def _choose_color(self):
         '''Abre el selector de color del sistema'''
-        # Seguridad
-        if not hasattr(self, 'edit_char_obj') or not self.edit_char_obj:
-            return
+        # Selector nativo de Windows/Linux/Mac
+        rgb, hex_color = colorchooser.askcolor(title="Selecciona un color", initialcolor=self.color_var.get())
 
-        # Creamos la ventana del selector
-        pick_color = AskColor() 
-        color = pick_color.get()
-
-        if color:
+        if hex_color:
             # Actualizar visualmente el editor
-            self._update_color_ui(color)
+            self._update_color_ui(hex_color)
             # Guardar inmediatamente en el objeto
-            self.color_var.set(color)
-    
+            self.color_var.set(hex_color)
+
     def refresh_character_list(self):
         '''
         Limpia y vuelve a dibujar la lista de personajes basada en la variable global
@@ -141,6 +165,16 @@ class CharacterEditorFrame(CTkFrame):
             # Si acabamos de refrescar y este era el seleccionado, lo resaltamos de nuevo
             if hasattr(self, 'current_char_name') and name == self.current_char_name:
                 self._highlight_button(char_item)
+
+    def refresh_audio_fonts_lists(self):
+        for var, dropdown, values in [
+            (self.audio_var, self.audio_dropdown, self._audio_options()),
+            (self.font_var, self.font_dropdown, self._font_options())
+        ]:
+            dropdown.configure(values=values)
+            if var.get() not in values:
+                var.set(values[0])
+
 
     def _on_add_click(self):
         '''
@@ -185,6 +219,8 @@ class CharacterEditorFrame(CTkFrame):
             # Resto de atributos
             self.edit_char_obj.name = new_name
             self.edit_char_obj.color = self.color_var.get().strip()
+            self.edit_char_obj.sound = self.audio_var.get()
+            self.edit_char_obj.font = self.font_var.get()
 
             # Actualizamos la interfaz
             self.lbl_right.configure(text=f"Editando: {new_name}")
@@ -249,6 +285,9 @@ class CharacterEditorFrame(CTkFrame):
             # Actualizar visualmente el editor
             self._update_color_ui(self.edit_char_obj.color)
             
+            self.audio_var.set(getattr(self.edit_char_obj, "sound", "Sin audio"))
+            self.font_var.set(getattr(self.edit_char_obj, "font", "Sin fuente"))
+
             # Gestionar el resaltado visual
             self._highlight_button(button_widget)
         else:

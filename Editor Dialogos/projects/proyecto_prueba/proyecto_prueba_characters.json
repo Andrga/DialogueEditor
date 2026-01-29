@@ -1,0 +1,15 @@
+{
+  "characters": {
+    "Masca": {
+      "font": "Limelight-Regular.ttf",
+      "sound": "Cuicui1.mp3",
+      "Color": "#943721"
+    },
+    "Ronda": {
+      "font": "UnifrakturMaguntia-Regular.ttf",
+      "sound": "Cuicui2.mp3",
+      "Color": "#ff9a24"
+    }
+  },
+  "lastModified": "2026-01-29T22:55:55.711431"
+}

@@ -2,13 +2,12 @@
 characters = {}
 
 class character:
-    def __init__(self, name="Character", color="#ffffff", font="", 
-    sounds=None):
+    def __init__(self, name="Character", color="#ffffff", sound="Sin audio", font="Sin fuente"):
         self.name = name
         self.color = color
         self.font = font
-        self.sounds =  sounds if sounds is not None else {}
-
+        self.sound = sound
+        
 import csv
 from tkinter import Canvas, Menu
 import customtkinter as ctk

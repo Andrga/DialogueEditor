@@ -1,0 +1,48 @@
+{
+  "Dialogues": [
+    {
+      "DialogueID": 0,
+      "Texts": [
+        {
+          "ID": 2,
+          "Type": "START",
+          "Character": "Masca",
+          "Next": 3,
+          "Text": "DIALOGO_1"
+        },
+        {
+          "ID": 3,
+          "Type": "DECISION",
+          "Character": "Ronda",
+          "Next": null,
+          "Text": "PREGUNTA",
+          "Options": [
+            {
+              "Text": "RESPUESTA_1",
+              "Next": 4
+            },
+            {
+              "Text": "RESPUESTA_2",
+              "Next": 5
+            }
+          ]
+        },
+        {
+          "ID": 4,
+          "Type": "DIALOGUE",
+          "Character": "Masca",
+          "Next": 5,
+          "Text": "DIALOGO_2"
+        },
+        {
+          "ID": 5,
+          "Type": "END",
+          "Character": "Ronda",
+          "Next": null,
+          "Text": "DIALOGO_3"
+        }
+      ]
+    }
+  ],
+  "LastModified": "2026-01-29T22:55:55.712222"
+}

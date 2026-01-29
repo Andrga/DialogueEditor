@@ -1,0 +1,29 @@
+{
+  "characters": {
+    "Masca": {
+      "font": "Limelight-Regular.ttf",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#943721"
+    },
+    "Ronda": {
+      "font": "UnifrakturMaguntia-Regular.ttf",
+      "sounds": {
+        "neutral": [],
+        "happy": [],
+        "sad": [],
+        "angry": [],
+        "surprised": [],
+        "suspicious": []
+      },
+      "Color": "#ff9a24"
+    }
+  },
+  "lastModified": "2026-01-29T22:52:11.959772"
+}

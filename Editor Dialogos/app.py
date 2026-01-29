@@ -1,9 +1,12 @@
 # Interfaces graficas
+import sys
 import tkinter as ttk
 from tkinter import *
 import customtkinter as ctk
 from CTkMenuBarPlus import CTkMenuBar, CustomDropdownMenu
 import ctypes, os
+from panels.ConfigDialog import ConfigDialog
+from panels.ConfigManager import ConfigManager
 from serialyzer import Serialyzer
 # Frames
 from panels.translationEditor import TranslationEditor
@@ -14,8 +17,18 @@ from panels.charactersEditor import CharacterEditorFrame
 try:
     myappid = 'dialogue_editor.alcanciles_con_miopia' # Da igual lo que ponga, es un id propio
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    ctypes.windll.shcore.SetProcessDpiAwareness(1) # 1 = Process_System_DPI_Aware
 except Exception as e:
     print(f"No se pudo configurar el ID de la barra de tareas: {e}")
+
+def resource_path(relative_path):
+    """ Gestiona rutas para que funcionen en desarrollo y en el .exe """
+    try:
+        # Carpeta temporal de PyInstaller
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 class App(ctk.CTk):
     def __init__(self):
@@ -28,20 +41,41 @@ class App(ctk.CTk):
         self.geometry("1080x720")
         self.title("Editor de Dialogos")
 
+        # Configuracion de resolucion dinamica
+        width = 1080
+        height = 720
+        
+        # Obtener resolucion de pantalla del usuario
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # Calcular posicion para centrar la ventana
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
         # Ruta del icono
-        icon_path = os.path.join(os.path.dirname(__file__), "images", "icon.ico")
-        if os.path.exists(icon_path):
-            # Icono de la ventana
-            self.iconbitmap(icon_path)
-            # Icono para la barra de tareas y el selector Alt+Tab
-            # A veces iconbitmap no es suficiente para CustomTkinter
-            img = PhotoImage(file=icon_path.replace(".ico", ".png"))
-            # Fuerza el icono:
-            self.iconphoto(False, img)
+        # Usamos resource_path para que encuentre los archivos dentro del .exe
+        icon_path_ico = resource_path(os.path.join("images", "icon.ico"))
+        icon_path_png = resource_path(os.path.join("images", "icon.png"))
+
+        if os.path.exists(icon_path_ico):
+            # Icono de la ventana (esquina superior izquierda)
+            self.iconbitmap(icon_path_ico)
+            
+            # Icono de la barra de tareas y Alt+Tab
+            # Cargamos el PNG (es mas estable para iconphoto)
+            if os.path.exists(icon_path_png):
+                img = PhotoImage(file=icon_path_png)
+                self.iconphoto(False, img)
         else:
-            print(f"No se encontro el icono en {icon_path}")
+            print(f"Error: No se encontro el icono en {icon_path_ico}")
 
         self.active_nodes = []
+        
+        # Inicializar el gestor de configuración
+        self.config_manager = ConfigManager()
 
     def notify_character_change(self):
         '''
@@ -60,20 +94,20 @@ class App(ctk.CTk):
         self.tabview = ctk.CTkTabview(master=self, command=self._on_tab_changed)
         self.tabview.pack(fill='both', expand=True)
         # Editor de nodos
-        self.nodesTab = self.tabview.add("Editor de nodos")
-        nodeEditorFrame = NodeEditorFrame(master=self.nodesTab)
-        nodeEditorFrame.pack(fill='both', expand=True)
+        nodesTab = self.tabview.add("Editor de nodos")
+        self.nodeEditorFrame = NodeEditorFrame(master=nodesTab)
+        self.nodeEditorFrame.pack(fill='both', expand=True)
         # Editor de personajes
-        self.charactersTab = self.tabview.add("Editor de personajes")
-        characterEditorFrame = CharacterEditorFrame(master=self.charactersTab)
-        characterEditorFrame.pack(fill='both', expand=True)
+        charactersTab = self.tabview.add("Editor de personajes")
+        self.characterEditorFrame = CharacterEditorFrame(master=charactersTab, config_manager=self.config_manager)
+        self.characterEditorFrame.pack(fill='both', expand=True)
         # Editor de parametros extra (Ej: Botones de UI, imagenes con texto...)
-        self.parametersTab = self.tabview.add("Parametros de juego")
-        translationTab = TranslationEditor(self.parametersTab)
-        translationTab.pack(fill='both', expand=True)
+        parametersTab = self.tabview.add("Parametros de juego")
+        self.translationTab = TranslationEditor(parametersTab)
+        self.translationTab.pack(fill='both', expand=True)
 
         # serializador
-        self.seryalizer = Serialyzer(nodeEditor=nodeEditorFrame, charactersEditor=characterEditorFrame, translationEditor=translationTab)
+        self.seryalizer = Serialyzer(nodeEditor=self.nodeEditorFrame, charactersEditor=self.characterEditorFrame, translationEditor=self.translationTab)
         self.mainloop()
 
     def _set_ui(self):
@@ -91,18 +125,27 @@ class App(ctk.CTk):
         # --- MENU EDITAR ---
         edit_btn = menu_bar.add_cascade("Editar")
         edit_dropdown = CustomDropdownMenu(widget=edit_btn)
-        edit_dropdown.add_option("Cortar")
-        edit_dropdown.add_option("Pegar")
-        edit_dropdown.add_separator()
-        edit_dropdown.add_option("Configuracion")
+        #edit_dropdown.add_option("Cortar")
+        #edit_dropdown.add_option("Pegar")
+        #edit_dropdown.add_separator()
+        edit_dropdown.add_option("Configuracion", command=self._open_config_dialog)
         menu = ttk.Menu(self)
         self.config(menu=menu)
         # --- MENU VER ---
-        see_btn = menu_bar.add_cascade("Ver")
-        see_dropdown = CustomDropdownMenu(widget=see_btn)
-        see_dropdown.add_option("Panel Izquierdo", checkable=True, command=lambda: print("Ver Panel Izquierdo"))
-        see_dropdown.add_option("Panel Derecho", checkable=True, command=lambda: print("Ver Panel Derecho"))
+        #see_btn = menu_bar.add_cascade("Ver")
+        #see_dropdown = CustomDropdownMenu(widget=see_btn)
+        #see_dropdown.add_option("Panel Izquierdo", checkable=True, command=lambda: print("Ver Panel Izquierdo"))
+        #see_dropdown.add_option("Panel Derecho", checkable=True, command=lambda: print("Ver Panel Derecho"))
     
+    def _open_config_dialog(self):
+        """Abre la ventana de configuración"""
+        config_dialog = ConfigDialog(self, self.config_manager)
+        # Esperar a que se cierre el diálogo
+        self.wait_window(config_dialog)
+        # Refrescar el editor de personajes si existe
+        if hasattr(self, 'characterEditorFrame'):
+            self.characterEditorFrame.refresh_audio_fonts_lists()
+
     def _on_tab_changed(self):
         '''
         Al cambiar de pestanya, quitamos el foco del teclado de cualquier sitio
