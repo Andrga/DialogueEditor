@@ -122,14 +122,16 @@ class TranslationEditor(CTkFrame):
             for lang, text in row.get_values().items():
                 self.table.set(key, lang, text)
 
-    def export_csv(self):
+    def export_csv(self, path=None):
         self.save()
-        path = filedialog.asksaveasfilename(defaultextension=".csv")
+        if not path:
+            path = filedialog.asksaveasfilename(defaultextension=".csv")
         if path:
             self.table.export_csv(path)
 
-    def import_csv(self):
-        path = filedialog.askopenfilename(filetypes=[("CSV", "*.csv")])
+    def import_csv(self, path=None):
+        if not path:
+            path = filedialog.askopenfilename(filetypes=[("CSV", "*.csv")])
         if path:
             self.table.import_csv(path)
             self.refresh()
