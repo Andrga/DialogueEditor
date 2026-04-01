@@ -1,7 +1,10 @@
-# Editor de Diálogos para Alcanciles con Miopia :-P
+# Editor de Diálogos
 Esto es un editor de dialogos y parametros de juego para facilitar la escritura y localización de dialogos de juegos en Godot, asi como diferentes palabras (ej: Botones de UI, imagenes con texto...)
 
-Esta pensado para que funcione con nuestro sistema de dialogos actualizado para Godot 4.5.1
+Esta pensado para que funcione con nuestro sistema de dialogos actualizado para Godot 4.6
+
+TODO:
+Estoy preparando un backend en c++ para conseguir una herramienta extrapolable a cualquier sistema operativo e interfaz
 
 ## Instalación
 
